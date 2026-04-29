@@ -141,7 +141,12 @@ const IDL = {
 
 // ── Solana setup ──────────────────────────────────────────────────────────────
 const connection = new Connection(RPC, "confirmed");
-const rawKey = JSON.parse(readFileSync(`${homedir()}/.config/solana/id.json`, "utf8"));
+let rawKey;
+if (process.env.AGENT_KEYPAIR) {
+  rawKey = JSON.parse(process.env.AGENT_KEYPAIR);
+} else {
+  rawKey = JSON.parse(readFileSync(`${homedir()}/.config/solana/id.json`, "utf8"));
+}
 const agentKeypair = Keypair.fromSecretKey(new Uint8Array(rawKey));
 const agentWallet = new anchor.Wallet(agentKeypair);
 const provider = new anchor.AnchorProvider(connection, agentWallet, { commitment: "confirmed" });
