@@ -15,7 +15,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import dotenv from "dotenv";
 dotenv.config();
 import Database from "better-sqlite3";
-const db = new Database(process.env.HOME + "/asa-guard/client/trades.db");
+import { mkdirSync } from "fs";
+import { dirname } from "path";
+import { fileURLToPath } from "url";
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const DB_PATH = process.env.DB_PATH || __dirname + "/trades.db";
+mkdirSync(dirname(DB_PATH), { recursive: true });
+const db = new Database(DB_PATH);
 db.exec(`CREATE TABLE IF NOT EXISTS trades (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   token TEXT,
