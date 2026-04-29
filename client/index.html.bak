@@ -1,0 +1,1986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASA Guard - Autonomous Solana Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cream: #F0EDE4;
+  --cream-dark: #E5E0D4;
+  --cream-darker: #D8D3C8;
+  --ink: #1A1916;
+  --ink-muted: #6B6860;
+  --lime: #C8F135;
+  --lime-dark: #A8D020;
+  --border: #CCC8BE;
+  --red: #E24B4A;
+  --green: #4CAF50;
+  --sidebar: 220px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { height: 100%; }
+body { background: var(--ink); color: var(--ink); font-family: 'DM Sans', sans-serif; font-size: 14px; line-height: 1.5; min-height: 100%; overflow-x: hidden; }
+#view-landing { background: var(--cream); }
+
+/* ===================== VIEWS ===================== */
+#view-landing, #view-dashboard { display: none; }
+#view-landing.active { display: block; background: var(--cream); }
+#view-dashboard.active { display: block; min-height: 100vh; background: var(--ink); overflow: hidden; }
+
+/* ===================== OVERLAY / MODAL ===================== */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(26,25,22,0.65);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s;
+}
+.overlay.show { opacity: 1; pointer-events: all; }
+
+.modal {
+  background: var(--cream);
+  border: 1px solid var(--border);
+  width: 100%;
+  max-width: 400px;
+  padding: 0;
+  transform: translateY(16px);
+  transition: transform 0.3s;
+  position: relative;
+}
+.overlay.show .modal { transform: translateY(0); }
+
+.modal-header {
+  padding: 24px 28px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.modal-logo {
+  display: flex; align-items: center; gap: 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
+  font-weight: 500;
+}
+.modal-logo .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--lime); border: 1px solid var(--lime-dark);
+  animation: pulse 2s infinite;
+}
+.modal-close {
+  background: none; border: none; cursor: pointer;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 18px; color: var(--ink-muted);
+  line-height: 1; padding: 0 4px;
+  transition: color 0.2s;
+}
+.modal-close:hover { color: var(--ink); }
+
+.modal-body { padding: 28px; }
+
+.modal-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 28px; font-weight: 400; line-height: 1.1;
+  margin-bottom: 8px;
+}
+.modal-title em { font-style: italic; color: var(--ink-muted); }
+
+.modal-sub {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: 0.05em;
+  color: var(--ink-muted); line-height: 1.65;
+  margin-bottom: 28px;
+}
+
+.tg-input-wrap {
+  border: 1px solid var(--border);
+  display: flex; align-items: stretch;
+  margin-bottom: 12px;
+  transition: border-color 0.2s;
+}
+.tg-input-wrap:focus-within { border-color: var(--ink); }
+
+.tg-prefix {
+  background: var(--cream-dark);
+  border-right: 1px solid var(--border);
+  padding: 0 12px;
+  display: flex; align-items: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px; color: var(--ink-muted);
+  flex-shrink: 0;
+}
+
+.tg-input {
+  flex: 1;
+  background: transparent;
+  border: none; outline: none;
+  padding: 12px 14px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px; color: var(--ink);
+}
+.tg-input::placeholder { color: var(--border); }
+
+.modal-error {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: 0.05em;
+  color: var(--red);
+  margin-bottom: 12px;
+  min-height: 16px;
+  display: none;
+}
+.modal-error.show { display: block; }
+
+.modal-btn {
+  width: 100%;
+  background: var(--ink); color: var(--cream);
+  border: none; padding: 13px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  cursor: pointer; transition: background 0.2s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.modal-btn:hover { background: #333; }
+.modal-btn.loading { opacity: 0.6; pointer-events: none; }
+
+.modal-footer {
+  padding: 16px 28px;
+  border-top: 1px solid var(--border);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink-muted);
+  display: flex; align-items: center; gap: 8px;
+}
+.modal-footer::before {
+  content: '';
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--lime); border: 1px solid var(--lime-dark);
+  flex-shrink: 0;
+}
+
+/* progress dots */
+.loading-dots span {
+  display: inline-block;
+  animation: blink 1.2s infinite;
+  font-size: 16px; line-height: 1;
+}
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes blink { 0%,80%,100%{opacity:0} 40%{opacity:1} }
+
+/* ===================== LANDING ===================== */
+nav {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 20px 48px;
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0;
+  background: var(--cream); z-index: 100;
+}
+.nav-logo {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px; font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none; color: var(--ink);
+}
+.nav-logo .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--lime); border: 1px solid var(--lime-dark);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.nav-links { display: flex; gap: 32px; list-style: none; }
+.nav-links a {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-muted); text-decoration: none; transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--ink); }
+.nav-cta {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  background: var(--ink); color: var(--cream);
+  border: none; padding: 10px 20px; cursor: pointer;
+  transition: background 0.2s;
+}
+.nav-cta:hover { background: #333; }
+
+.hero {
+  max-width: 960px; margin: 0 auto;
+  padding: 80px 48px 60px;
+}
+.hero-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+  color: var(--ink-muted);
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 28px;
+}
+.hero-label::before {
+  content: '';
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--lime); border: 1px solid var(--lime-dark);
+}
+.hero h1 {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(52px,7vw,88px); line-height: 1.0;
+  font-weight: 400; letter-spacing: -0.02em;
+  margin-bottom: 32px;
+}
+.hero h1 em { font-style: italic; color: var(--ink-muted); }
+.hero-desc {
+  max-width: 520px; font-size: 18px; font-weight: 300;
+  color: var(--ink-muted); line-height: 1.65; margin-bottom: 48px;
+}
+.hero-actions { display: flex; gap: 16px; align-items: center; }
+.btn-primary {
+  background: var(--ink); color: var(--cream);
+  border: none; padding: 14px 28px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
+  cursor: pointer; display: flex; align-items: center; gap: 10px;
+  text-decoration: none; transition: background 0.2s;
+}
+.btn-primary:hover { background: #333; }
+.btn-secondary {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-muted); text-decoration: none;
+  border-bottom: 1px solid var(--border); padding-bottom: 2px;
+  transition: color 0.2s, border-color 0.2s;
+  background: none; border-left: none; border-top: none; border-right: none;
+  cursor: pointer;
+}
+.btn-secondary:hover { color: var(--ink); border-color: var(--ink); }
+
+
+/* ===================== PLANET HERO ===================== */
+.hero-planet-wrap {
+  position: relative;
+  min-height: 600px;
+  overflow: hidden;
+  background: #0a0c07;
+  display: flex;
+  align-items: center;
+}
+
+#starCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+.planet-scene {
+  position: absolute;
+  right: -60px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 520px;
+  height: 520px;
+  z-index: 1;
+}
+
+.planet-core {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 260px; height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 35%, #2a3a0a 0%, #141f02 40%, #0a0c05 100%);
+  box-shadow:
+    0 0 60px rgba(180,255,30,0.18),
+    0 0 120px rgba(150,220,20,0.10),
+    inset 0 0 40px rgba(180,255,30,0.08);
+  animation: planetRotate 40s linear infinite;
+  overflow: hidden;
+}
+
+.planet-core::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 25% 25%, rgba(200,241,53,0.15) 0%, transparent 50%),
+    radial-gradient(circle at 70% 65%, rgba(120,180,10,0.08) 0%, transparent 40%);
+}
+
+.planet-glow {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 300px; height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(168,208,32,0.12) 0%, transparent 70%);
+  animation: glowPulse 4s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+  0%,100% { transform: translate(-50%,-50%) scale(1); opacity: 0.8; }
+  50% { transform: translate(-50%,-50%) scale(1.08); opacity: 1; }
+}
+
+/* RINGS */
+.planet-ring-outer,
+.planet-ring-mid,
+.planet-ring-inner {
+  position: absolute;
+  top: 50%; left: 50%;
+  border-radius: 50%;
+  border-style: solid;
+  border-color: transparent;
+  transform-origin: center center;
+}
+
+.planet-ring-outer {
+  width: 500px; height: 160px;
+  margin-left: -250px; margin-top: -80px;
+  border-top: 2px solid rgba(200,241,53,0.5);
+  border-bottom: 1px solid rgba(200,241,53,0.15);
+  box-shadow: 0 0 20px rgba(200,241,53,0.15), 0 -4px 30px rgba(200,241,53,0.1);
+  transform: rotateX(72deg) rotateZ(-20deg);
+  animation: ringRotate 25s linear infinite;
+}
+
+.planet-ring-mid {
+  width: 420px; height: 120px;
+  margin-left: -210px; margin-top: -60px;
+  border-top: 1.5px solid rgba(168,208,32,0.4);
+  border-bottom: 1px solid rgba(168,208,32,0.1);
+  box-shadow: 0 0 15px rgba(168,208,32,0.1);
+  transform: rotateX(72deg) rotateZ(-20deg);
+  animation: ringRotate 35s linear infinite reverse;
+}
+
+.planet-ring-inner {
+  width: 340px; height: 90px;
+  margin-left: -170px; margin-top: -45px;
+  border-top: 1px solid rgba(200,241,53,0.25);
+  transform: rotateX(72deg) rotateZ(-20deg);
+  animation: ringRotate 20s linear infinite;
+}
+
+@keyframes ringRotate {
+  from { transform: rotateX(72deg) rotateZ(-20deg) rotateY(0deg); }
+  to   { transform: rotateX(72deg) rotateZ(-20deg) rotateY(360deg); }
+}
+
+@keyframes planetRotate {
+  from { filter: hue-rotate(0deg); }
+  to   { filter: hue-rotate(10deg); }
+}
+
+/* FLOATING PARTICLES */
+.planet-particles {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+.p-dot {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--lime);
+  animation: floatDot linear infinite;
+  opacity: 0;
+}
+
+@keyframes floatDot {
+  0%   { opacity: 0; transform: translate(0,0) scale(0.5); }
+  20%  { opacity: 1; }
+  80%  { opacity: 0.6; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.5); }
+}
+
+/* HERO TEXT OVERLAY */
+.hero.hero-overlay {
+  position: relative;
+  z-index: 2;
+  padding: 80px 48px 60px;
+  max-width: 580px;
+}
+
+.hero.hero-overlay .hero-label { color: rgba(255,255,255,0.45); }
+.hero.hero-overlay h1 { color: var(--cream); }
+.hero.hero-overlay h1 em { color: var(--lime); font-style: italic; }
+.hero.hero-overlay .hero-desc { color: rgba(240,237,228,0.55); }
+.hero.hero-overlay .btn-secondary {
+  color: rgba(255,255,255,0.4);
+  border-bottom-color: rgba(255,255,255,0.2);
+}
+.hero.hero-overlay .btn-secondary:hover { color: var(--cream); border-color: var(--cream); }
+
+/* TICKER */
+.ticker {
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  padding: 12px 0; overflow: hidden; background: var(--cream-dark);
+}
+.ticker-inner {
+  display: flex; gap: 64px;
+  animation: ticker 20s linear infinite; white-space: nowrap;
+}
+@keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+.ticker-item {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ink-muted);
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+}
+.ticker-item .val { color: var(--ink); font-weight: 500; }
+.ticker-item .up { color: var(--green); }
+
+/* STATS */
+.stats {
+  display: grid; grid-template-columns: repeat(3,1fr);
+  border-left: 1px solid var(--border); margin: 0 48px;
+}
+.stat-item {
+  padding: 40px 32px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.stat-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+  color: var(--ink-muted); margin-bottom: 12px;
+}
+.stat-value {
+  font-family: 'DM Serif Display', serif;
+  font-size: 42px; font-weight: 400; line-height: 1; margin-bottom: 4px;
+}
+.stat-sub {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; color: var(--ink-muted);
+}
+
+.section { max-width: 960px; margin: 0 auto; padding: 80px 48px; }
+.section-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--ink-muted); margin-bottom: 40px;
+  display: flex; align-items: center; gap: 16px;
+}
+.section-label::after { content:''; flex:1; height:1px; background:var(--border); }
+.section h2 {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(32px,4vw,52px); font-weight: 400; line-height: 1.1; margin-bottom: 20px;
+}
+.section h2 em { font-style: italic; color: var(--ink-muted); }
+
+.flow {
+  display: grid; grid-template-columns: repeat(4,1fr);
+  gap: 1px; background: var(--border);
+  border: 1px solid var(--border); margin-top: 48px;
+}
+.flow-step { background: var(--cream); padding: 28px 24px; }
+.step-num {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: 0.1em; color: var(--ink-muted);
+  margin-bottom: 16px; border: 1px solid var(--border);
+  display: inline-block; padding: 3px 8px;
+}
+.step-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 20px; font-weight: 400; margin-bottom: 10px; line-height: 1.2;
+}
+.step-desc {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; line-height: 1.7; color: var(--ink-muted);
+}
+.flow-step:last-child .step-title { color: var(--lime-dark); }
+
+.features {
+  display: grid; grid-template-columns: repeat(2,1fr);
+  gap: 1px; background: var(--border);
+  border: 1px solid var(--border); margin-top: 48px;
+}
+.feature { background: var(--cream); padding: 36px 32px; display: flex; gap: 20px; }
+.feature-icon {
+  width: 36px; height: 36px;
+  border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; background: var(--cream-dark);
+}
+.feature-icon svg { width: 18px; height: 18px; }
+.feature h3 { font-family: 'DM Serif Display', serif; font-size: 20px; font-weight: 400; margin-bottom: 8px; }
+.feature p { font-family: 'IBM Plex Mono', monospace; font-size: 11px; line-height: 1.75; color: var(--ink-muted); }
+
+.cta-section {
+  margin: 0 48px 80px; background: var(--ink);
+  padding: 64px 48px;
+  display: flex; justify-content: space-between; align-items: center; gap: 32px;
+}
+.cta-section h2 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 40px; font-weight: 400; color: var(--cream); line-height: 1.1; max-width: 420px;
+}
+.cta-section h2 em { font-style: italic; color: var(--lime); }
+.cta-btn {
+  background: var(--lime); color: var(--ink);
+  border: none; padding: 16px 32px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
+  font-weight: 500; cursor: pointer; text-decoration: none;
+  display: inline-block; white-space: nowrap; transition: background 0.2s;
+}
+.cta-btn:hover { background: var(--lime-dark); }
+
+.section-divider { border: none; border-top: 1px solid var(--border); margin: 0 48px; }
+
+.security-row {
+  display: flex; gap: 1px; background: var(--border);
+  border: 1px solid var(--border); border-bottom: none; margin: 0 48px;
+}
+.security-badge {
+  flex: 1; background: var(--cream);
+  padding: 16px 24px; display: flex; align-items: center; gap: 12px;
+}
+.sec-icon { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; }
+.sec-icon svg { width: 20px; height: 20px; stroke: var(--ink-muted); }
+.sec-text { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.05em; color: var(--ink-muted); line-height: 1.6; }
+.sec-text strong { display: block; color: var(--ink); font-weight: 500; margin-bottom: 2px; }
+
+footer {
+  border-top: 1px solid var(--border);
+  padding: 24px 48px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+footer span { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-muted); }
+.footer-links { display: flex; gap: 24px; }
+.footer-links a { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-muted); text-decoration: none; transition: color 0.2s; }
+.footer-links a:hover { color: var(--ink); }
+
+/* ===================== DASHBOARD ===================== */
+.dash-wrap { display: flex; min-height: 100vh; background: var(--ink); width: 100%; overflow: hidden; }
+
+.sidebar {
+  width: var(--sidebar); background: var(--ink);
+  height: 100vh; position: sticky; top: 0;
+  display: flex; flex-direction: column; flex-shrink: 0;
+  z-index: 5;
+}
+.sidebar-logo {
+  padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex; align-items: center; gap: 10px;
+}
+.sidebar-logo .dot { width:8px;height:8px;border-radius:50%;background:var(--lime);animation:pulse 2s infinite;flex-shrink:0; }
+.sidebar-logo span { font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--cream);font-weight:500; }
+
+.sidebar-user {
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex; align-items: center; gap: 10px;
+}
+.sidebar-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--lime); display: flex; align-items: center; justify-content: center;
+  font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+  color: var(--ink); font-weight: 500; flex-shrink: 0;
+}
+.sidebar-user-info {}
+.sidebar-user-name {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; font-weight: 500; color: var(--cream);
+  line-height: 1.2;
+}
+.sidebar-user-id {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: 0.05em; color: rgba(255,255,255,0.35);
+}
+
+.sidebar-nav { flex:1; padding: 20px 0; background: var(--ink); overflow-y: auto; display: flex; flex-direction: column; }
+.nav-section-label {
+  font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:0.2em;
+  text-transform:uppercase;color:rgba(255,255,255,0.25);
+  padding:0 20px 8px;margin-top:8px;
+}
+.nav-item {
+  display:flex;align-items:center;gap:10px;padding:10px 20px;
+  width:100%;
+  font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.05em;
+  color:rgba(255,255,255,0.45);cursor:pointer;
+  transition:color 0.2s,background 0.2s;
+  border-left:2px solid transparent;text-decoration:none;
+}
+.nav-item:hover{color:var(--cream);background:rgba(255,255,255,0.04);}
+.nav-item.active{color:var(--cream);border-left-color:var(--lime);background:rgba(255,255,255,0.06);}
+.nav-item svg{width:14px;height:14px;opacity:0.7;flex-shrink:0;}
+.nav-item.active svg{opacity:1;}
+
+.sidebar-bottom {
+  padding:16px 20px;
+  border-top:1px solid rgba(255,255,255,0.08);
+}
+.agent-status {
+  display:flex;align-items:center;gap:8px;
+  font-family:'IBM Plex Mono',monospace;font-size:10px;
+  color:rgba(255,255,255,0.4);margin-bottom:10px;
+}
+.agent-status .status-dot{width:6px;height:6px;border-radius:50%;background:var(--lime);animation:pulse 2s infinite;}
+.pause-btn {
+  width:100%;background:rgba(226,75,74,0.15);border:1px solid rgba(226,75,74,0.3);
+  color:var(--red);padding:8px;
+  font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;
+  cursor:pointer;transition:background 0.2s;
+}
+.pause-btn:hover{background:rgba(226,75,74,0.25);}
+
+.dash-main { flex:1; overflow-y:auto; padding:0; background:var(--cream-dark); min-height:100vh; }
+
+.topbar {
+  background:var(--cream);border-bottom:1px solid var(--border);
+  padding:14px 32px;
+  display:flex;justify-content:space-between;align-items:center;
+  position:sticky;top:0;z-index:10;
+}
+.topbar-left{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-muted);}
+.topbar-right{display:flex;align-items:center;gap:16px;}
+.wallet-pill{font-family:'IBM Plex Mono',monospace;font-size:10px;background:var(--cream-dark);border:1px solid var(--border);padding:6px 12px;color:var(--ink-muted);display:flex;align-items:center;gap:6px;}
+.wallet-pill .dot-sm{width:5px;height:5px;border-radius:50%;background:var(--lime-dark);}
+.time-display{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-muted);}
+
+/* logout btn */
+.logout-btn {
+  font-family:'IBM Plex Mono',monospace;font-size:9px;
+  letter-spacing:0.1em;text-transform:uppercase;
+  background:transparent;border:1px solid var(--border);
+  color:var(--ink-muted);padding:6px 10px;cursor:pointer;
+  transition:all 0.2s;
+}
+.logout-btn:hover{border-color:var(--red);color:var(--red);}
+
+.content { padding:24px 32px; }
+
+.metric-row {
+  display:grid;grid-template-columns:1fr 1fr 1fr 1fr;
+  gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:24px;
+}
+.metric-card{background:var(--cream);padding:20px 22px;}
+.metric-label{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:0.15em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:8px;}
+.metric-value{font-family:'DM Serif Display',serif;font-size:30px;font-weight:400;line-height:1;margin-bottom:4px;}
+.metric-sub{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink-muted);}
+.metric-sub .up{color:var(--green);}.metric-sub .down{color:var(--red);}
+
+.gate-card{background:var(--cream);border:1px solid var(--border);padding:20px;margin-bottom:24px;}
+.gate-label{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.gate-steps{display:flex;gap:1px;background:var(--border);border:1px solid var(--border);}
+.gate-step{flex:1;padding:14px 16px;background:var(--cream);}
+.gate-step-num{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:0.1em;color:var(--ink-muted);margin-bottom:6px;}
+.gate-step-title{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;color:var(--ink);margin-bottom:4px;}
+.gate-step-desc{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--ink-muted);line-height:1.6;}
+.gate-step.done{background:rgba(200,241,53,0.08);}.gate-step.done .gate-step-num{color:var(--lime-dark);}
+.gate-step.pending{background:rgba(226,75,74,0.04);}.gate-step.pending .gate-step-num{color:var(--red);}
+
+.two-col{display:grid;grid-template-columns:1fr 340px;gap:24px;margin-bottom:24px;}
+.panel{background:var(--cream);border:1px solid var(--border);}#view-dashboard .two-col .panel,.full-row .panel{color:var(--ink) !important;}
+#view-dashboard .panel{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);}
+#view-dashboard .panel,.panel-title,.panel-badge,.wallet-cell-label,.wallet-cell-val,.log-time,.log-msg,.form-label{color:var(--cream);}#view-dashboard .trade-token,.trade-time,.trade-amount,.trade-status{color:var(--ink) !important;}
+#view-dashboard .wallet-cell-label{opacity:0.5;}
+#view-dashboard .panel-badge{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.12);}
+#view-dashboard .wallet-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:rgba(255,255,255,0.06);}
+#view-dashboard .wallet-cell{padding:16px 20px;background:rgba(255,255,255,0.02);}
+#view-dashboard .wallet-cell-val{font-family:'IBM Plex Mono',monospace;font-size:11px;word-break:break-all;}
+#view-dashboard .prog-track{background:rgba(255,255,255,0.08);}
+#view-dashboard .panel-header{border-color:rgba(255,255,255,0.08);}
+#view-dashboard .form-input{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:var(--ink);border-radius:6px;padding:8px 10px;width:100%;box-sizing:border-box;}
+.panel-header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--border);}
+.panel-title{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink);font-weight:500;}
+.panel-badge{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:0.1em;padding:3px 8px;background:var(--cream-dark);border:1px solid var(--border);color:var(--ink-muted);}
+.panel-badge.live{background:var(--lime);border-color:var(--lime-dark);color:var(--ink);}
+
+.trade-row{display:grid;grid-template-columns:auto 1fr auto auto auto;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);align-items:center;}
+.trade-row:last-child{border-bottom:none;}
+.trade-badge{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:0.08em;padding:3px 8px;font-weight:500;}
+.trade-badge.buy{background:rgba(76,175,80,0.1);color:var(--green);border:1px solid rgba(76,175,80,0.25);}
+.trade-badge.sell{background:rgba(226,75,74,0.1);color:var(--red);border:1px solid rgba(226,75,74,0.25);}
+.trade-token{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;}
+.trade-time{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--ink-muted);}
+.trade-amount{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;}
+.trade-status{font-family:'IBM Plex Mono',monospace;font-size:9px;display:flex;align-items:center;gap:4px;}
+.trade-status.ok{color:var(--green);}.trade-status.rejected{color:var(--red);}
+
+.policy-item{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:16px;}
+.policy-item:last-child{border-bottom:none;}
+.policy-item-label{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.05em;color:var(--ink-muted);margin-bottom:4px;}
+.policy-item-val{font-family:'DM Serif Display',serif;font-size:22px;font-weight:400;color:var(--ink);}
+.policy-progress{flex:1;max-width:100px;}
+.prog-track{height:3px;background:var(--cream-dark);border:1px solid var(--border);position:relative;margin-bottom:4px;}
+.prog-fill{height:100%;background:var(--lime-dark);transition:width 0.5s;}
+.prog-fill.warn{background:#E8A020;}.prog-fill.danger{background:var(--red);}
+.prog-label{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--ink-muted);text-align:right;}
+
+.form-label{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-muted);display:block;margin-bottom:6px;}
+.form-input{width:100%;background:var(--cream-dark);border:1px solid var(--border);padding:8px 10px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink);outline:none;transition:border-color 0.2s;}
+.form-input:focus{border-color:var(--ink);}
+.form-actions{padding:14px 20px;display:flex;gap:10px;}
+.form-btn{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;padding:8px 16px;cursor:pointer;border:1px solid var(--border);background:var(--cream-dark);color:var(--ink);transition:background 0.2s;}
+.form-btn:hover{background:var(--cream-darker);}
+.form-btn.primary{background:var(--ink);color:var(--cream);border-color:var(--ink);}
+.form-btn.primary:hover{background:#333;}
+
+.full-row{margin-bottom:24px;}
+.log-item{display:flex;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1.5;}
+.log-time{color:var(--ink-muted);flex-shrink:0;}
+.log-type{flex-shrink:0;width:60px;}
+.log-type.info{color:#378ADD;}.log-type.ok{color:var(--green);}.log-type.err{color:var(--red);}.log-type.warn{color:#BA7517;}
+.log-msg{color:var(--ink);}
+
+.wallet-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border-top:1px solid var(--border);}
+.wallet-cell{background:var(--cream);padding:14px 20px;}
+.wallet-cell-label{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:4px;}
+.wallet-cell-val{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;color:var(--ink);word-break:break-all;}
+
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:var(--cream-dark);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* ===================== ANIMATIONS ===================== */
+.fade-in { animation: fadeIn 0.4s ease forwards; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+</style>
+</head>
+<body>
+
+<!-- ===================== LOGIN MODAL ===================== -->
+<div class="overlay" id="loginOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-logo">
+        <span class="dot"></span>
+        ASA Guard
+      </div>
+      <button class="modal-close" onclick="closeLogin()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-title">Sign in to<br><em>your dashboard.</em></div>
+      <div class="modal-sub">Enter your Telegram username to access your agent's<br>trading dashboard and policy controls.</div>
+
+      <div class="tg-input-wrap">
+        <div class="tg-prefix">@</div>
+        <input
+          class="tg-input"
+          id="tgInput"
+          type="text"
+          placeholder="yourusername"
+          autocomplete="off"
+          spellcheck="false"
+          onkeydown="if(event.key==='Enter') doLogin()"
+        >
+      </div>
+      <div class="modal-error" id="modalError">Username cannot be empty.</div>
+
+      <button class="modal-btn" id="loginBtn" onclick="doLogin()">
+        Continue with Telegram →
+      </button>
+    </div>
+    <div class="modal-footer">
+      Secured via Telegram approval
+    </div>
+  </div>
+</div>
+
+<!-- ===================== LANDING ===================== -->
+<div id="view-landing">
+  <nav>
+    <a class="nav-logo" href="#">
+      <span class="dot"></span>
+      ASA Guard
+    </a>
+    <ul class="nav-links">
+      <li><a href="#">How It Works</a></li>
+      <li><a href="#">Security</a></li>
+      <li><a href="#" onclick="openLogin();return false;">Dashboard</a></li>
+      <li><a href="#">Docs</a></li>
+    </ul>
+    <button class="nav-cta" onclick="openLogin()">Launch App →</button>
+  </nav>
+
+  <!-- HERO WITH PLANET -->
+  <div class="hero-planet-wrap">
+    <!-- STARFIELD -->
+    <canvas id="starCanvas"></canvas>
+
+    <!-- PLANET -->
+    <div class="planet-scene">
+      <div class="planet-ring-outer"></div>
+      <div class="planet-ring-mid"></div>
+      <div class="planet-ring-inner"></div>
+      <div class="planet-glow"></div>
+      <div class="planet-core"></div>
+      <div class="planet-particles" id="planetParticles"></div>
+    </div>
+
+    <!-- HERO TEXT -->
+    <div class="hero hero-overlay">
+      <p class="hero-label">Autonomous Solana Agent Guard</p>
+      <h1>Guard, sign,<br><em>never expose.</em></h1>
+      <p class="hero-desc">AI trading agents shouldn't hold private keys. ASA Guard enforces your trading policy on-chain and signs via zero-trust MPC - your keys never exist in plaintext.</p>
+      <div class="hero-actions">
+        <button class="btn-primary" onclick="openLogin()">Open Dashboard <span>→</span></button>
+        <button class="btn-secondary">View on GitHub</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ticker">
+    <div class="ticker-inner">
+      <div class="ticker-item">Program ID <span class="val">Di3vEF...7Qdd</span></div>
+      <div class="ticker-item">Network <span class="val">Solana Devnet</span></div>
+      <div class="ticker-item">SOL/USD <span class="val">$182.40</span> <span class="up">▲ 2.4%</span></div>
+      <div class="ticker-item">Policy Status <span class="val" style="color:#4CAF50">ACTIVE</span></div>
+      <div class="ticker-item">Daily Limit <span class="val">$2,000</span></div>
+      <div class="ticker-item">Max Per TX <span class="val">$1,000</span></div>
+      <div class="ticker-item">Stop Loss <span class="val">15%</span></div>
+      <div class="ticker-item">dWallet <span class="val">0xd659...0d05</span></div>
+      <div class="ticker-item">Program ID <span class="val">Di3vEF...7Qdd</span></div>
+      <div class="ticker-item">Network <span class="val">Solana Devnet</span></div>
+      <div class="ticker-item">SOL/USD <span class="val">$182.40</span> <span class="up">▲ 2.4%</span></div>
+      <div class="ticker-item">Policy Status <span class="val" style="color:#4CAF50">ACTIVE</span></div>
+      <div class="ticker-item">Daily Limit <span class="val">$2,000</span></div>
+      <div class="ticker-item">Max Per TX <span class="val">$1,000</span></div>
+      <div class="ticker-item">Stop Loss <span class="val">15%</span></div>
+      <div class="ticker-item">dWallet <span class="val">0xd659...0d05</span></div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat-item">
+      <div class="stat-label">Keys exposed</div>
+      <div class="stat-value">Zero</div>
+      <div class="stat-sub">Private keys never in plaintext</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Policy enforcement</div>
+      <div class="stat-value">On-chain</div>
+      <div class="stat-sub">Solana Anchor program</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Signing method</div>
+      <div class="stat-value">2PC-MPC</div>
+      <div class="stat-sub">Ika zero-trust network</div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <div class="section">
+    <p class="section-label">How It Works</p>
+    <h2>Trade, approve,<br><em>sign in layers.</em></h2>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="step-num">01</div>
+        <div class="step-title">ASA Bot decides</div>
+        <p class="step-desc">AI engine (Groq) analyzes market and sends a trade intent to the bridge server.</p>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">02</div>
+        <div class="step-title">Policy checked on-chain</div>
+        <p class="step-desc">Anchor program verifies max buy, daily limit, and stop loss before any signature is requested.</p>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">03</div>
+        <div class="step-title">Ika MPC signs</div>
+        <p class="step-desc">dWallet generates signature via 2PC-MPC - agent never holds the private key.</p>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">04</div>
+        <div class="step-title">Trade executes</div>
+        <p class="step-desc">Signed transaction is broadcast to Solana. Policy counters update on-chain atomically.</p>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <div class="section">
+    <p class="section-label">Security Architecture</p>
+    <h2>Built for<br><em>zero-trust agents.</em></h2>
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        </div>
+        <div>
+          <h3>No raw private key</h3>
+          <p>Your .env never contains a private key. The dWallet keypair is split between you and Ika's MPC network. Neither party alone can sign.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+        </div>
+        <div>
+          <h3>Cryptographic policy</h3>
+          <p>Rules aren't just Python code - they're enforced by a Solana Anchor program. Bypassing the policy means bypassing the blockchain.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+        </div>
+        <div>
+          <h3>Daily spend tracking</h3>
+          <p>On-chain counters track daily spend atomically. Resets automatically. No way for a compromised agent to exceed limits.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        </div>
+        <div>
+          <h3>Telegram override</h3>
+          <p>Emergency pause, policy update, and trade history - all from your Telegram. Override the agent at any time without touching code.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="security-row">
+    <div class="security-badge">
+      <div class="sec-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+      <div class="sec-text"><strong>Ika 2PC-MPC</strong>Zero-trust signature network</div>
+    </div>
+    <div class="security-badge">
+      <div class="sec-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div>
+      <div class="sec-text"><strong>Solana Anchor</strong>On-chain policy enforcement</div>
+    </div>
+    <div class="security-badge">
+      <div class="sec-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+      <div class="sec-text"><strong>Groq AI Engine</strong>Fast market decision making</div>
+    </div>
+    <div class="security-badge">
+      <div class="sec-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+      <div class="sec-text"><strong>Telegram Control</strong>Override, pause, update policy</div>
+    </div>
+  </div>
+
+  <div class="cta-section">
+    <h2>Your agent trades.<br><em>You stay in control.</em></h2>
+    <button class="cta-btn" onclick="openLogin()">Open Dashboard →</button>
+  </div>
+
+  <footer>
+    <span>© 2025 ASA Guard - Solana Devnet</span>
+    <div class="footer-links">
+      <a href="#">GitHub</a>
+      <a href="#">Docs</a>
+      <a href="#">Ika Protocol</a>
+      <a href="#" onclick="openLogin();return false;">Dashboard</a>
+    </div>
+  </footer>
+</div><!-- /view-landing -->
+
+<!-- ===================== DASHBOARD ===================== -->
+<div id="view-dashboard">
+  <div class="dash-wrap">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="dot"></span>
+        <span>ASA Guard</span>
+      </div>
+
+      <!-- USER INFO injected by JS -->
+      <div class="sidebar-user" id="sidebarUser">
+        <div class="sidebar-avatar" id="sidebarAvatar">?</div>
+        <div class="sidebar-user-info">
+          <div class="sidebar-user-name" id="sidebarName">-</div>
+          <div class="sidebar-user-id">Telegram</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Monitor</div>
+        <a class="nav-item active" href="#" onclick="switchSection('overview');return false;" data-section="overview">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          Overview
+        </a>
+        <a class="nav-item" href="#" onclick="switchSection('livefeed');return false;" data-section="livefeed">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          Live Feed
+        </a>
+        <a class="nav-item" href="#" onclick="switchSection('tradehistory');return false;" data-section="tradehistory">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          Trade History
+        </a>
+        <div class="nav-section-label" style="margin-top:12px">Config</div>
+        <a class="nav-item" href="#" onclick="switchSection('policy');return false;" data-section="policy">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          Policy
+        </a>
+        <a class="nav-item" href="#" onclick="switchSection('dwallet');return false;" data-section="dwallet">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          dWallet
+        </a>
+        <a class="nav-item" href="#" onclick="switchSection('settings');return false;" data-section="settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          Settings
+        </a>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="agent-status">
+          <span class="status-dot"></span>
+          <span>Agent running</span>
+        </div>
+        <button class="pause-btn" id="pauseBtn" onclick="togglePause()">⏸ PAUSE AGENT</button>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="dash-main">
+      <div class="topbar">
+        <span class="topbar-left">Overview - Solana Devnet</span>
+        <div class="topbar-right">
+
+          <span class="time-display" id="clock">--:--:--</span>
+          <button class="logout-btn" onclick="doLogout()">↩ Logout</button>
+        </div>
+      </div>
+
+      <!-- TX POPUP -->
+      <div id="txPopup" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(26,25,22,0.65);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
+        <div style="background:var(--cream);border:1px solid var(--border);width:100%;max-width:400px;position:relative;">
+          <!-- header -->
+          <div style="padding:20px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:10px;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;font-weight:500;color:var(--ink);">
+              <span id="txPopupDot" style="width:8px;height:8px;border-radius:50%;background:var(--lime);border:1px solid var(--lime-dark);"></span>
+              ASA Guard
+            </div>
+            <button onclick="closeTxPopup()" style="background:none;border:none;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:18px;color:var(--ink-muted);line-height:1;padding:0 4px;">×</button>
+          </div>
+          <!-- body -->
+          <div style="padding:28px;">
+            <div id="txPopupTitle" style="font-family:'DM Serif Display',serif;font-size:28px;font-weight:400;line-height:1.1;margin-bottom:8px;color:var(--ink);">Transaction<br><em style="font-style:italic;color:var(--ink-muted);">confirmed.</em></div>
+            <div id="txPopupSub" style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.05em;color:var(--ink-muted);margin-bottom:24px;">Solana Devnet</div>
+            <!-- grid info -->
+            <div style="border:1px solid var(--border);margin-bottom:16px;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);">
+                <div style="background:var(--cream);padding:12px 14px;">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:4px;">Action</div>
+                  <div id="txPopupAction" style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink);font-weight:500;">-</div>
+                </div>
+                <div style="background:var(--cream);padding:12px 14px;">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:4px;">Status</div>
+                  <div id="txPopupStatus" style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;">-</div>
+                </div>
+              </div>
+            </div>
+            <!-- sig -->
+            <div style="margin-bottom:16px;">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:6px;">TX Signature</div>
+              <div id="txPopupSig" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink-muted);word-break:break-all;line-height:1.6;">-</div>
+            </div>
+            <a id="txPopupLink" href="#" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;background:var(--ink);color:var(--cream);padding:13px;text-decoration:none;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;">
+              View on Solana Explorer →
+            </a>
+          </div>
+          <!-- footer -->
+          <div style="padding:14px 28px;border-top:1px solid var(--border);font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-muted);display:flex;align-items:center;gap:8px;">
+            <span style="width:6px;height:6px;border-radius:50%;background:var(--lime);border:1px solid var(--lime-dark);flex-shrink:0;display:inline-block;"></span>
+            Solana Devnet · Ika 2PC-MPC
+          </div>
+        </div>
+      </div>
+
+      <div class="content fade-in" id="dashContent">
+
+        <!-- METRICS -->
+        <div class="metric-row">
+          <div class="metric-card">
+            <div class="metric-label">Agent Wallet</div>
+            <div class="metric-value" id="mc-wallet" style="font-size:13px">Loading...</div>
+            <div class="metric-sub">Solana Devnet</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Daily Spent</div>
+            <div class="metric-value" id="mc-spent">0 SOL</div>
+            <div class="metric-sub" id="mc-spent-sub">of - limit</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Trades Today</div>
+            <div class="metric-value" id="mc-trades">0</div>
+            <div class="metric-sub" id="mc-trades-sub">0 approved - 0 rejected</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Stop Loss</div>
+            <div class="metric-value" id="mc-stoploss" style="color:#E8A020">-</div>
+            <div class="metric-sub" id="mc-stoploss-sub">-</div>
+          </div>
+        </div>
+
+        <!-- APPROVAL GATE -->
+        <div class="gate-card">
+          <div class="gate-label">Approval Gate - Last Trade</div>
+          <div class="gate-steps">
+            <div class="gate-step done">
+              <div class="gate-step-num">✓ 01</div>
+              <div class="gate-step-title">ASA Bot</div>
+              <div class="gate-step-desc">BUY SOL<br>$450 intent</div>
+            </div>
+            <div class="gate-step done">
+              <div class="gate-step-num">✓ 02</div>
+              <div class="gate-step-title">approve_trade</div>
+              <div class="gate-step-desc">Solana program<br>approved</div>
+            </div>
+            <div class="gate-step done">
+              <div class="gate-step-num">✓ 03</div>
+              <div class="gate-step-title">Ika DKG</div>
+              <div class="gate-step-desc">MPC presign<br>generated</div>
+            </div>
+            <div class="gate-step pending">
+              <div class="gate-step-num">⟳ 04</div>
+              <div class="gate-step-title">MPC Sign</div>
+              <div class="gate-step-desc">MessageApproval<br>pending</div>
+            </div>
+            <div class="gate-step">
+              <div class="gate-step-num">- 05</div>
+              <div class="gate-step-title">Broadcast</div>
+              <div class="gate-step-desc">Solana network<br>awaiting</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TWO COL -->
+        <div class="two-col">
+          <!-- TRADE HISTORY -->
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">Trade History</span>
+              <span class="panel-badge live">Live</span>
+            </div>
+            <div class="trade-row">
+              <span class="trade-badge buy">BUY</span>
+              <span class="trade-token">SOL/USDC</span>
+              <span class="trade-time">14:32:01</span>
+              <span class="trade-amount">$450</span>
+              <span class="trade-status ok">✓ Approved</span>
+            </div>
+            <div class="trade-row">
+              <span class="trade-badge sell">SELL</span>
+              <span class="trade-token">JTO/USDC</span>
+              <span class="trade-time">13:58:44</span>
+              <span class="trade-amount">$220</span>
+              <span class="trade-status ok">✓ Approved</span>
+            </div>
+            <div class="trade-row">
+              <span class="trade-badge buy">BUY</span>
+              <span class="trade-token">WIF/USDC</span>
+              <span class="trade-time">13:21:09</span>
+              <span class="trade-amount">$170</span>
+              <span class="trade-status ok">✓ Approved</span>
+            </div>
+            <div class="trade-row">
+              <span class="trade-badge buy">BUY</span>
+              <span class="trade-token">SOL/USDC</span>
+              <span class="trade-time">12:44:17</span>
+              <span class="trade-amount" style="color:var(--red)">$1,200</span>
+              <span class="trade-status rejected">✗ Rejected</span>
+            </div>
+            <div class="trade-row">
+              <span class="trade-badge sell">SELL</span>
+              <span class="trade-token">BONK/USDC</span>
+              <span class="trade-time">12:11:33</span>
+              <span class="trade-amount">$90</span>
+              <span class="trade-status ok">✓ Approved</span>
+            </div>
+            <div class="trade-row">
+              <span class="trade-badge buy">BUY</span>
+              <span class="trade-token">JTO/USDC</span>
+              <span class="trade-time">11:40:02</span>
+              <span class="trade-amount">$310</span>
+              <span class="trade-status ok">✓ Approved</span>
+            </div>
+          </div>
+
+          <!-- POLICY PANEL -->
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">On-chain Policy</span>
+              <span class="panel-badge" style="background:var(--lime);border-color:var(--lime-dark)">● Active</span>
+            </div>
+            <div class="policy-item">
+              <div>
+                <div class="policy-item-label">Max buy / TX</div>
+                <div class="policy-item-val">$1,000</div>
+              </div>
+              <div class="policy-progress">
+                <div class="prog-track"><div class="prog-fill" style="width:45%"></div></div>
+                <div class="prog-label">$450 last tx</div>
+              </div>
+            </div>
+            <div class="policy-item">
+              <div>
+                <div class="policy-item-label">Daily limit</div>
+                <div class="policy-item-val">$2,000</div>
+              </div>
+              <div class="policy-progress">
+                <div class="prog-track"><div class="prog-fill warn" style="width:42%"></div></div>
+                <div class="prog-label">$840 used</div>
+              </div>
+            </div>
+            <div class="policy-item">
+              <div>
+                <div class="policy-item-label">Stop loss</div>
+                <div class="policy-item-val">15%</div>
+              </div>
+              <div class="policy-progress">
+                <div class="prog-track"><div class="prog-fill danger" style="width:21%"></div></div>
+                <div class="prog-label">3.2% now</div>
+              </div>
+            </div>
+
+            <div style="border-top:1px solid var(--border);padding:12px 20px 4px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:10px">Update Policy</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+                <div><label class="form-label">Max buy</label><input type="number" class="form-input" id="ov-input-maxbuy" value="1000"></div>
+                <div><label class="form-label">Daily limit</label><input type="number" class="form-input" id="ov-input-daily" value="2000"></div>
+              </div>
+              <div style="margin-bottom:10px"><label class="form-label">Stop loss %</label><input type="number" class="form-input" id="ov-input-sl" value="15"></div>
+            </div>
+            <div class="form-actions">
+              <button class="form-btn primary" id="updatePolicyBtn" onclick="doUpdatePolicy()">Update On-chain</button>
+              <button class="form-btn">Reset</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SYSTEM LOG -->
+        <div class="full-row">
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">System Log</span>
+              <span class="panel-badge live">Live</span>
+            </div>
+            <div class="log-item"><span class="log-time">14:32:01</span><span class="log-type ok">APPROVE</span><span class="log-msg">approve_trade OK - SOL/USDC $450 - policy: max_buy ✓ daily_limit ✓ stop_loss ✓</span></div>
+            <div class="log-item"><span class="log-time">14:32:00</span><span class="log-type info">BRIDGE</span><span class="log-msg">Trade intent received - token: SOL, amount: 450, direction: BUY</span></div>
+            <div class="log-item"><span class="log-time">14:31:58</span><span class="log-type info">AGENT</span><span class="log-msg">Groq signal: SOL RSI 38.2 - oversold - BUY intent generated</span></div>
+            <div class="log-item"><span class="log-time">13:58:44</span><span class="log-type ok">APPROVE</span><span class="log-msg">approve_trade OK - JTO/USDC $220 - all policy checks passed</span></div>
+            <div class="log-item"><span class="log-time">12:44:17</span><span class="log-type err">REJECT</span><span class="log-msg">approve_trade REJECTED - SOL/USDC $1,200 - max_buy exceeded ($1,000 limit)</span></div>
+            <div class="log-item"><span class="log-time">12:44:15</span><span class="log-type warn">POLICY</span><span class="log-msg">Trade intent $1,200 exceeds max_buy_per_tx - sending rejection to agent</span></div>
+            <div class="log-item"><span class="log-time">09:00:00</span><span class="log-type info">SYSTEM</span><span class="log-msg" id="loginLog">Daily counters reset - daily_spent: 0 - new session started</span></div>
+          </div>
+        </div>
+
+        <!-- WALLET INFO -->
+        <div class="full-row">
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">dWallet Info</span>
+              <span class="panel-badge">Ika MPC</span>
+            </div>
+            <div class="wallet-grid" style="background:rgba(0,0,0,0.15)">
+              <div class="wallet-cell" style="background:rgba(0,0,0,0.1)">
+                <div class="wallet-cell-label" style="color:rgba(0,0,0,0.45);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">dWallet ID</div>
+                <div class="wallet-cell-val" style="color:#1a1a1a;font-family:'IBM Plex Mono',monospace;font-size:11px;word-break:break-all">0x13ed...3e2e</div>
+              </div>
+              <div class="wallet-cell" style="background:rgba(0,0,0,0.1)">
+                <div class="wallet-cell-label" style="color:rgba(0,0,0,0.45);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">DWalletCap</div>
+                <div class="wallet-cell-val" style="color:#1a1a1a;font-family:'IBM Plex Mono',monospace;font-size:11px">0xd659...0d05</div>
+              </div>
+              <div class="wallet-cell" style="background:rgba(0,0,0,0.1)">
+                <div class="wallet-cell-label" style="color:rgba(0,0,0,0.45);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Solana Program</div>
+                <div class="wallet-cell-val" style="color:#1a1a1a;font-family:'IBM Plex Mono',monospace;font-size:11px;word-break:break-all">Di3vEFGxT7LJbSfpXyyZTeo2PEHEb8oXK4xRuMCY7Qdd</div>
+              </div>
+              <div class="wallet-cell" style="background:rgba(0,0,0,0.1)">
+                <div class="wallet-cell-label" style="color:rgba(0,0,0,0.45);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Signing Method</div>
+                <div class="wallet-cell-val" style="color:#1a1a1a;font-family:'IBM Plex Mono',monospace;font-size:11px">Ika 2PC-MPC - gRPC</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION: LIVE FEED -->
+        <div data-sec="livefeed" style="display:none;padding:24px 32px;">
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">Live Agent Feed</span>
+              <span class="panel-badge live">Live</span>
+            </div>
+            <div id="liveFeedLog">
+              <div class="log-item"><span class="log-time">-</span><span class="log-type info">SYSTEM</span><span class="log-msg">Waiting for agent activity...</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION: TRADE HISTORY -->
+        <div data-sec="tradehistory" style="display:none;padding:24px 32px;">
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">Trade History</span>
+              <span class="panel-badge live">Live</span>
+            </div>
+            <div id="fullTradeHistory">
+              <div class="log-item"><span class="log-time">-</span><span class="log-type info">SYSTEM</span><span class="log-msg">No trades yet - agent will populate this on first run.</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION: POLICY -->
+        <div data-sec="policy" style="display:none;padding:24px 32px;">
+          <div class="panel">
+              <div class="panel-header">
+                <span class="panel-title">On-chain Policy</span>
+                <span class="panel-badge" style="background:var(--lime);border-color:var(--lime-dark)">Active</span>
+              </div>
+              <div class="policy-item">
+                <div><div class="policy-item-label">Max buy / TX</div><div class="policy-item-val" id="pol-maxbuy">-</div></div>
+                <div class="policy-progress"><div class="prog-track"><div class="prog-fill" id="pol-maxbuy-bar" style="width:0%"></div></div><div class="prog-label" id="pol-maxbuy-lbl">-</div></div>
+              </div>
+              <div class="policy-item">
+                <div><div class="policy-item-label">Daily limit</div><div class="policy-item-val" id="pol-daily">-</div></div>
+                <div class="policy-progress"><div class="prog-track"><div class="prog-fill" id="pol-daily-bar" style="width:0%"></div></div><div class="prog-label" id="pol-daily-lbl">-</div></div>
+              </div>
+              <div class="policy-item">
+                <div><div class="policy-item-label">Stop loss</div><div class="policy-item-val" id="pol-sl">-</div></div>
+              </div>
+              <div style="border-top:1px solid var(--border);padding:12px 20px 4px">
+                <div style="font-family:monospace;font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:10px">Update Policy</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+                  <div><label class="form-label">Max buy (SOL)</label><input type="number" class="form-input" id="pol-input-maxbuy" value="1"></div>
+                  <div><label class="form-label">Daily limit (SOL)</label><input type="number" class="form-input" id="pol-input-daily" value="5"></div>
+                </div>
+                <div style="margin-bottom:10px"><label class="form-label">Stop loss %</label><input type="number" class="form-input" id="pol-input-sl" value="15"></div>
+              </div>
+              <div class="form-actions">
+                <button class="form-btn primary" onclick="doUpdatePolicyFull()">Update On-chain</button>
+              </div>
+            </div>
+          </div>
+
+        <!-- SECTION: DWALLET -->
+        <div data-sec="dwallet" style="display:none;padding:24px 32px;">
+          <div class="panel">
+              <div class="panel-header">
+                <span class="panel-title">dWallet Info</span>
+                <span class="panel-badge">Ika MPC</span>
+              </div>
+              <div class="wallet-grid">
+                <div class="wallet-cell"><div class="wallet-cell-label">dWallet ID</div><div class="wallet-cell-val" id="cfg-dwalletId">-</div></div>
+                <div class="wallet-cell"><div class="wallet-cell-label">DWalletCap</div><div class="wallet-cell-val" id="cfg-dwalletCap">-</div></div>
+                <div class="wallet-cell"><div class="wallet-cell-label">Solana Program</div><div class="wallet-cell-val" id="cfg-programId">-</div></div>
+                <div class="wallet-cell"><div class="wallet-cell-label" style="color:rgba(232,230,223,0.5)">Signing Method</div><div class="wallet-cell-val" style="color:#e8e6df">Ika 2PC-MPC - gRPC</div></div>
+              </div>
+          </div>
+        </div>
+
+        <!-- SECTION: SETTINGS -->
+        <div data-sec="settings" style="display:none;padding:24px 32px;">
+          <div class="panel">
+              <div class="panel-header"><span class="panel-title">Settings</span></div>
+              <div style="padding:20px;color:var(--ink-muted);font-size:13px;">
+                <div style="margin-bottom:16px"><strong style="color:var(--ink)">Telegram Bot</strong><br><span style="color:var(--ink-muted)">@ASAGuardsolbot - connected</span></div>
+                <div style="margin-bottom:16px"><strong style="color:var(--ink)">Network</strong><br><span style="color:var(--ink-muted)">Solana Devnet</span></div>
+                <div style="margin-bottom:16px"><strong style="color:var(--ink)">Agent Loop</strong><br><span style="color:var(--ink-muted)">30s interval - active</span></div>
+                <div><button class="form-btn primary" onclick="doLogout()">↩ Logout</button></div>
+              </div>
+          </div>
+        </div>
+
+      </div><!-- /content -->
+    </main>
+  </div><!-- /dash-wrap -->
+</div><!-- /view-dashboard -->
+
+<script>
+  // ===================== STATE =====================
+  let currentUser = null;
+  let agentPaused = false;
+
+  // ===================== NAV SWITCHING =====================
+  const sections = {
+    overview: ['metric-row','gate-card','two-col','full-row'],
+    livefeed: ['section-livefeed'],
+    tradehistory: ['section-tradehistory'],
+    policy: ['section-policy'],
+    dwallet: ['section-dwallet'],
+    settings: ['section-settings']
+  };
+  let currentSection = 'overview';
+
+  function switchSection(name) {
+    currentSection = name;
+    document.querySelectorAll('.nav-item').forEach(function(el) {
+      if (el.getAttribute('data-section') === name) {
+        el.classList.add('active');
+      } else {
+        el.classList.remove('active');
+      }
+    });
+    var titles = {overview:'Overview - Solana Devnet', livefeed:'Live Feed', tradehistory:'Trade History', policy:'Policy Config', dwallet:'dWallet Info', settings:'Settings'};
+    var tb = document.querySelector('.topbar-left');
+    if (tb) tb.textContent = titles[name] || name;
+    var content = document.getElementById('dashContent');
+    if (!content) return;
+    var overviewEls = content.querySelectorAll('.metric-row,.gate-card,.two-col,.full-row');
+    var secEls = content.querySelectorAll('[data-sec]');
+    if (name === 'overview') {
+      secEls.forEach(function(el) { el.style.display = 'none'; });
+      overviewEls.forEach(function(el) { el.style.display = ''; });
+    } else {
+      overviewEls.forEach(function(el) { el.style.display = 'none'; });
+      secEls.forEach(function(el) {
+        el.style.display = el.getAttribute('data-sec') === name ? '' : 'none';
+      });
+    }
+  }
+
+  // ===================== TX POPUP =====================
+  function showTxPopup(tx) {
+    const popup = document.getElementById('txPopup');
+    const approved = tx.approved !== false;
+    document.getElementById('txPopupTitle').innerHTML = approved ? 'Transaction<br><em style="font-style:italic;color:var(--ink-muted);">confirmed.</em>' : 'Transaction<br><em style="font-style:italic;color:var(--red);">rejected.</em>';
+    document.getElementById('txPopupSub').textContent = new Date().toLocaleString() + ' · Solana Devnet';
+    document.getElementById('txPopupAction').textContent = tx.action || 'APPROVE_TRADE';
+    document.getElementById('txPopupStatus').textContent = approved ? '✓ Approved' : '✗ Rejected';
+    document.getElementById('txPopupStatus').style.color = approved ? 'var(--green)' : 'var(--red)';
+    document.getElementById('txPopupDot').style.background = approved ? 'var(--lime)' : 'var(--red)';
+    const sig = tx.signature || tx.txSig || null;
+    document.getElementById('txPopupSig').textContent = sig || 'Policy check only - no on-chain tx';
+    const link = document.getElementById('txPopupLink');
+    if (sig) {
+      link.href = 'https://explorer.solana.com/tx/' + sig + '?cluster=devnet';
+      link.style.display = 'flex';
+    } else {
+      link.style.display = 'none';
+    }
+    popup.style.display = 'flex';
+  }
+  function closeTxPopup() {
+    document.getElementById('txPopup').style.display = 'none';
+  }
+  document.getElementById('txPopup')?.addEventListener('click', function(e) {
+    if (e.target === this) closeTxPopup();
+  });
+
+  // ===================== UPDATE POLICY FULL (section policy) =====================
+  async function doUpdatePolicyFull() {
+    const maxBuy = Math.floor(parseFloat(document.getElementById('pol-input-maxbuy').value) * 1e9).toString();
+    const dailyLimit = Math.floor(parseFloat(document.getElementById('pol-input-daily').value) * 1e9).toString();
+    try {
+      const res = await apiFetch('/api/update-policy-internal', {
+        method: 'POST',
+        body: JSON.stringify({ maxBuySol: maxBuy, dailyLimitSol: dailyLimit, isActive: true })
+      }).then(r => r.json());
+      if (res.ok) {
+        showTxPopup({ token: 'POLICY', action: 'UPDATE', approved: true, signature: res.tx, amount: (parseInt(maxBuy)/1e9).toFixed(2) });
+        await fetchPolicy();
+      } else {
+        showTxPopup({ token: 'POLICY', action: 'UPDATE', approved: false, signature: null });
+      }
+    } catch(e) { console.error(e); }
+  }
+
+  // ===================== FETCH METRICS =====================
+  async function fetchMetrics() {
+    try {
+      const r = await apiFetch('/api/metrics', { headers: HEADERS() });
+      const data = await r.json();
+      if (!data.ok) return;
+      const wallet = document.getElementById('mc-wallet');
+      const trades = document.getElementById('mc-trades');
+      const tradesSub = document.getElementById('mc-trades-sub');
+      if (wallet) wallet.textContent = data.agent ? data.agent.slice(0,8) + '...' + data.agent.slice(-6) : '-';
+      if (trades) trades.textContent = data.totalTrades;
+      if (tradesSub) tradesSub.textContent = data.approved + ' approved - ' + data.rejected + ' rejected';
+    } catch(e) { console.error('fetchMetrics:', e); }
+  }
+
+  // ===================== FETCH CONFIG =====================
+  async function fetchConfig() {
+    try {
+      const r = await apiFetch('/api/config', { headers: HEADERS() });
+      const data = await r.json();
+      if (!data.ok) return;
+      // Update wallet pill topbar
+      const pill = document.querySelector('.wallet-pill');
+      if (pill) pill.innerHTML = '<span class="dot-sm"></span>' + (data.dwalletCap || '-');
+      // Update dWallet panel cells (overview)
+      const cells = document.querySelectorAll('.wallet-cell-val');
+      if (cells[0]) cells[0].textContent = data.dwalletId || '-';
+      if (cells[1]) cells[1].textContent = data.dwalletCap || '-';
+      if (cells[2]) cells[2].textContent = data.programId || '-';
+      // Update section dwallet
+      const d = document.getElementById('cfg-dwalletId');
+      const c = document.getElementById('cfg-dwalletCap');
+      const p = document.getElementById('cfg-programId');
+      if (d) d.textContent = data.dwalletId || '-';
+      if (c) c.textContent = data.dwalletCap || '-';
+      if (p) p.textContent = data.programId || '-';
+    } catch(e) { console.error('fetchConfig:', e); }
+  }
+
+  // ===================== FETCH HISTORY =====================
+  async function fetchHistory() {
+    try {
+      const r = await apiFetch('/api/history', { headers: HEADERS() });
+      const data = await r.json();
+      if (!data.ok || !data.trades) return;
+      // Update trade history panel
+      const panels = document.querySelectorAll('.panel');
+      let tradePanel = null;
+      // Overview panel
+      const overviewPanel = document.querySelector('.two-col .panel');
+      if (overviewPanel) {
+        overviewPanel.querySelectorAll('.trade-row').forEach(r => r.remove());
+        data.trades.slice(0,8).forEach(t => {
+          const row = document.createElement('div');
+          row.className = 'trade-row';
+          row.style.cursor = 'pointer';
+          const approved = t.approved !== false;
+          const a = t.action||'BUY';
+          row.innerHTML = '<span class="trade-badge '+a.toLowerCase()+'">'+a+'</span>'
+            +'<span class="trade-token">'+(t.token||'SOL')+'/USDC</span>'
+            +'<span class="trade-time">'+new Date(t.timestamp).toLocaleTimeString('en-GB')+'</span>'
+            +'<span class="trade-amount" style="'+(approved?'':'color:var(--red)')+'">'+(t.amountSol||'-')+' SOL</span>'
+            +'<span class="trade-status '+(approved?'ok':'rejected')+'">'+(approved?'✓ Approved':'✗ Rejected')+'</span>';
+          row.onclick = () => showTxPopup(t);
+          overviewPanel.appendChild(row);
+        });
+      }
+      const fullPanel = document.getElementById('fullTradeHistory');
+      if (fullPanel) {
+        fullPanel.innerHTML = '';
+        data.trades.forEach(t => {
+          const approved = t.approved !== false;
+          const a = t.action||'BUY';
+          const div = document.createElement('div');
+          div.className = 'trade-row';
+          div.style.cursor = 'pointer';
+          div.innerHTML = '<span class="trade-badge '+a.toLowerCase()+'">'+a+'</span>'
+            +'<span class="trade-token">'+(t.token||'SOL')+'/USDC</span>'
+            +'<span class="trade-time">'+new Date(t.timestamp).toLocaleTimeString('en-GB')+'</span>'
+            +'<span class="trade-amount" style="'+(approved?'':'color:var(--red)')+'">'+(t.amountSol||'-')+' SOL</span>'
+            +'<span class="trade-status '+(approved?'ok':'rejected')+'">'+(approved?'✓ Approved':'✗ Rejected')+'</span>';
+          div.onclick = () => showTxPopup(t);
+          fullPanel.appendChild(div);
+        });
+      }
+    } catch(e) { console.error('fetchHistory:', e); }
+  }
+
+  const TOKEN = () => sessionStorage.getItem('asa_token');
+  const HEADERS = () => ({ 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN() });
+  async function apiFetch(url, opts={}) {
+    const res = await fetch(url, { ...opts, headers: HEADERS() });
+    if (res.status === 401) {
+      sessionStorage.removeItem('asa_token');
+      sessionStorage.removeItem('asa_user');
+      currentUser = null;
+      showLanding();
+      openLogin();
+      throw new Error('Session expired');
+    }
+    return res;
+  }
+
+  async function fetchPolicy() {
+    try {
+      const r = await apiFetch('/api/policy', { headers: HEADERS() });
+      const data = await r.json();
+      if (data.ok) updateDashboardPolicy(data.policy);
+    } catch(e) { console.error('fetchPolicy:', e); }
+  }
+
+  function updateDashboardPolicy(p) {
+    const maxBuy = (Number(p.maxBuySol) / 1e9).toFixed(4).replace(/\.?0+$/, '');
+    const dailyLimit = (Number(p.dailyLimitSol) / 1e9).toFixed(4).replace(/\.?0+$/, '');
+    const dailySpent = (Number(p.dailySpent) / 1e9).toFixed(4).replace(/\.?0+$/, '');
+    const pct = Math.round(Number(p.dailySpent) / Number(p.dailyLimitSol) * 100);
+
+    // Metrics IDs
+    const mcSpent = document.getElementById('mc-spent');
+    const mcSpentSub = document.getElementById('mc-spent-sub');
+    const mcStoploss = document.getElementById('mc-stoploss');
+    const mcStoplossSub = document.getElementById('mc-stoploss-sub');
+    if (mcSpent) mcSpent.textContent = dailySpent + ' SOL';
+    if (mcSpentSub) mcSpentSub.textContent = 'of ' + dailyLimit + ' SOL limit - ' + pct + '%';
+    if (mcStoploss) mcStoploss.textContent = (p.stopLossBps/100) + '%';
+    if (mcStoplossSub) mcStoplossSub.textContent = 'Stop loss threshold';
+    // Metrics
+    const mc = document.querySelectorAll('.metric-card');
+    if (mc[1]) { mc[1].querySelector('.metric-value').textContent = dailySpent + ' SOL'; mc[1].querySelector('.metric-sub').textContent = 'of ' + dailyLimit + ' SOL limit - ' + pct + '%'; }
+    if (mc[2]) { mc[2].querySelector('.metric-value').textContent = p.tradeCount; }
+
+    // Policy panel values
+    const pItems = document.querySelectorAll('.policy-item');
+    if (pItems[0]) { pItems[0].querySelector('.policy-item-val').textContent = maxBuy + ' SOL'; }
+    if (pItems[1]) {
+      pItems[1].querySelector('.policy-item-val').textContent = dailyLimit + ' SOL';
+      const fill = pItems[1].querySelector('.prog-fill');
+      if (fill) { fill.style.width = pct + '%'; fill.className = 'prog-fill' + (pct > 80 ? ' danger' : pct > 60 ? ' warn' : ''); }
+      const lbl = pItems[1].querySelector('.prog-label');
+      if (lbl) lbl.textContent = dailySpent + ' used';
+    }
+    if (pItems[2]) { pItems[2].querySelector('.policy-item-val').textContent = (p.stopLossBps/100) + '%'; }
+
+    // Policy status badge
+    const badge = document.querySelector('.panel-badge[style*="lime"]');
+    if (badge) badge.textContent = p.isActive ? '● Active' : '● Paused';
+
+    // Pause button
+    const pauseBtn = document.getElementById('pauseBtn');
+    const dot = document.querySelector('.agent-status .status-dot');
+    const statusTxt = document.querySelector('.agent-status');
+    if (p.isActive) {
+      agentPaused = false;
+      if (pauseBtn) { pauseBtn.textContent = '⏸ PAUSE AGENT'; pauseBtn.style.cssText = ''; }
+      if (dot) { dot.style.background = 'var(--lime)'; dot.style.animation = 'pulse 2s infinite'; }
+      if (statusTxt) { const sp = statusTxt.querySelector('span:last-child'); if(sp) sp.textContent = 'Agent running'; }
+    } else {
+      agentPaused = true;
+      if (pauseBtn) { pauseBtn.textContent = '▶ RESUME AGENT'; pauseBtn.style.background = 'rgba(76,175,80,0.15)'; pauseBtn.style.borderColor = 'rgba(76,175,80,0.3)'; pauseBtn.style.color = '#4CAF50'; }
+      if (dot) { dot.style.background = '#E24B4A'; dot.style.animation = 'none'; }
+      if (statusTxt) { const sp = statusTxt.querySelector('span:last-child'); if(sp) sp.textContent = 'Agent paused'; }
+    }
+
+    // Form inputs overview
+    const ovMax = document.getElementById('ov-input-maxbuy');
+    const ovDaily = document.getElementById('ov-input-daily');
+    const ovSl = document.getElementById('ov-input-sl');
+    if (ovMax) ovMax.value = maxBuy;
+    if (ovDaily) ovDaily.value = dailyLimit;
+    if (ovSl) ovSl.value = (p.stopLossBps/100);
+    // Section policy IDs
+    const polMax = document.getElementById('pol-maxbuy');
+    const polDaily = document.getElementById('pol-daily');
+    const polSl = document.getElementById('pol-sl');
+    if (polMax) polMax.textContent = maxBuy + ' SOL';
+    if (polDaily) polDaily.textContent = dailyLimit + ' SOL';
+    if (polSl) polSl.textContent = (p.stopLossBps/100) + '%';
+    const polMaxBar = document.getElementById('pol-maxbuy-bar');
+    const polDailyBar = document.getElementById('pol-daily-bar');
+    const polDailyLbl = document.getElementById('pol-daily-lbl');
+    const polMaxLbl = document.getElementById('pol-maxbuy-lbl');
+    if (polDailyBar) { polDailyBar.style.width = pct + '%'; polDailyBar.className = 'prog-fill' + (pct > 80 ? ' danger' : pct > 60 ? ' warn' : ''); }
+    if (polDailyLbl) polDailyLbl.textContent = dailySpent + ' used';
+    if (polMaxLbl) polMaxLbl.textContent = maxBuy + ' max';
+  }
+
+  async function doUpdatePolicy() {
+    const maxBuy = Math.floor(parseFloat(document.getElementById('ov-input-maxbuy').value) * 1e9).toString();
+    const dailyLimit = Math.floor(parseFloat(document.getElementById('ov-input-daily').value) * 1e9).toString();
+    const btn = document.getElementById('updatePolicyBtn');
+    btn.textContent = 'Updating...';
+    btn.disabled = true;
+    try {
+      const res = await apiFetch('/api/update-policy-internal', {
+        method: 'POST',
+        body: JSON.stringify({ maxBuySol: maxBuy, dailyLimitSol: dailyLimit, isActive: true })
+      }).then(r=>r.json());
+      if (res.ok) {
+        btn.textContent = 'Updated ✓';
+        showTxPopup({ token: 'POLICY', action: 'UPDATE', approved: true, signature: res.tx, amount: (parseInt(maxBuy)/1e9).toFixed(2) });
+        await fetchPolicy();
+      } else {
+        btn.textContent = 'Failed ✗';
+        showTxPopup({ token: 'POLICY', action: 'UPDATE', approved: false, signature: null });
+      }
+    } catch(e) { btn.textContent = 'Failed ✗'; }
+    setTimeout(() => { btn.textContent = 'Update On-chain'; btn.disabled = false; }, 2000);
+  }
+
+  // ===================== LIVE FEED =====================
+  async function fetchFeed() {
+    try {
+      const r = await apiFetch('/api/feed');
+      const data = await r.json();
+      if (!data.ok) return;
+      const container = document.getElementById('liveFeedLog');
+      if (!container) return;
+      if (data.feed.length === 0) return;
+      container.innerHTML = '';
+      data.feed.forEach(log => {
+        const div = document.createElement('div');
+        div.className = 'log-item';
+        div.innerHTML = '<span class="log-time">'+log.time+'</span><span class="log-type '+log.type+'">'+log.label+'</span><span class="log-msg">'+log.msg+'</span>';
+        container.appendChild(div);
+      });
+    } catch(e) { console.error('fetchFeed:', e); }
+  }
+
+  // ===================== INIT =====================
+  function init() {
+    const saved = sessionStorage.getItem('asa_user');
+    if (saved) {
+      currentUser = saved;
+      showDashboard();
+    } else {
+      showLanding();
+    }
+    tickClock();
+    setInterval(tickClock, 1000);
+  }
+
+  // ===================== VIEWS =====================
+  function showLanding() {
+    document.getElementById('view-landing').classList.add('active');
+    document.getElementById('view-dashboard').classList.remove('active');
+  }
+
+  function showDashboard() {
+    document.getElementById('view-landing').classList.remove('active');
+    document.getElementById('view-dashboard').classList.add('active');
+
+    // Inject user info into sidebar
+    const name = '@' + currentUser;
+    const initials = currentUser.slice(0,2).toUpperCase();
+    document.getElementById('sidebarName').textContent = name;
+    document.getElementById('sidebarAvatar').textContent = initials;
+
+    // Add login event to log
+    const now = new Date().toLocaleTimeString('en-GB');
+    document.getElementById('loginLog').textContent =
+      'Session started - user: ' + name + ' - ' + now;
+
+    // Animate content in
+    const c = document.getElementById('dashContent');
+    c.classList.remove('fade-in');
+    void c.offsetWidth;
+    c.classList.add('fade-in');
+
+    // Fetch real policy
+    fetchPolicy();
+    fetchConfig();
+    fetchHistory();
+    fetchMetrics();
+    setInterval(fetchPolicy, 10000);
+    setInterval(fetchHistory, 15000);
+    setInterval(fetchMetrics, 15000);
+    fetchFeed();
+    setInterval(fetchFeed, 5000);
+  }
+
+  // ===================== MODAL =====================
+  function openLogin() {
+    document.getElementById('loginOverlay').classList.add('show');
+    setTimeout(() => document.getElementById('tgInput').focus(), 300);
+  }
+
+  function closeLogin() {
+    document.getElementById('loginOverlay').classList.remove('show');
+    clearError();
+  }
+
+  function clearError() {
+    document.getElementById('modalError').classList.remove('show');
+  }
+
+  function doLogin() {
+    const input = document.getElementById('tgInput');
+    const raw = input.value.trim().replace(/^@/, '');
+    const btn = document.getElementById('loginBtn');
+    const err = document.getElementById('modalError');
+
+    if (!raw) {
+      err.textContent = 'Enter your Telegram username.';
+      err.classList.add('show');
+      input.focus();
+      return;
+    }
+
+    if (raw.length < 3) {
+      err.textContent = 'Username must be at least 3 characters.';
+      err.classList.add('show');
+      input.focus();
+      return;
+    }
+
+    clearError();
+
+    // Loading state
+    btn.classList.add('loading');
+    btn.innerHTML = 'Waiting approval <span class="loading-dots"><span>.</span><span>.</span><span>.</span></span>';
+
+    fetch('/api/auth/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: raw })
+    })
+    .then(async r => {
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Request failed');
+      currentUser = raw;
+      sessionStorage.setItem('asa_user', raw);
+      sessionStorage.setItem('asa_token', data.token);
+      console.log('Token stored:', data.token.slice(0,8));
+      btn.classList.remove('loading');
+      btn.innerHTML = '✓ Authenticated';
+      setTimeout(() => {
+        document.getElementById('loginOverlay').classList.remove('show');
+        showDashboard();
+        setTimeout(() => { btn.innerHTML = 'Continue with Telegram →'; }, 600);
+      }, 500);
+    })
+    .catch(e => {
+      btn.classList.remove('loading');
+      btn.innerHTML = 'Continue with Telegram →';
+      err.textContent = e.message === 'Request timeout' ? '⏱ Timeout - no response from owner' :
+                        e.message === 'Rejected by owner' ? '❌ Access rejected' :
+                        e.message || 'Auth failed';
+      err.classList.add('show');
+    });
+  }
+
+  // Close on overlay click
+  document.getElementById('loginOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeLogin();
+  });
+
+  // ===================== LOGOUT =====================
+  function doLogout() {
+    sessionStorage.removeItem('asa_user');
+    currentUser = null;
+    document.getElementById('tgInput').value = '';
+    showLanding();
+  }
+
+  // ===================== PAUSE =====================
+  async function togglePause() {
+    try {
+      const cur = await apiFetch('/api/policy').then(r=>r.json());
+      if (!cur.ok) return;
+      const p = cur.policy;
+      const newActive = !p.isActive;
+      const res = await apiFetch('/api/update-policy-internal', {
+        method: 'POST',
+        body: JSON.stringify({ maxBuySol: p.maxBuySol, dailyLimitSol: p.dailyLimitSol, isActive: newActive })
+      }).then(r=>r.json());
+      if (res.ok) {
+        showTxPopup({
+          token: 'AGENT',
+          action: newActive ? 'RESUME' : 'PAUSE',
+          approved: true,
+          signature: res.tx,
+          amount: null
+        });
+        await fetchPolicy();
+      }
+    } catch(e) { console.error('togglePause error:', e); }
+  }
+
+  // ===================== CLOCK =====================
+  function tickClock() {
+    const el = document.getElementById('clock');
+    if (el) el.textContent = new Date().toLocaleTimeString('en-GB');
+  }
+
+
+  // ===================== PLANET / STARFIELD =====================
+  function initPlanet() {
+    // Starfield canvas
+    const canvas = document.getElementById('starCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // Generate stars
+    const stars = Array.from({length: 180}, () => ({
+      x: Math.random(),
+      y: Math.random(),
+      r: Math.random() * 1.4 + 0.2,
+      o: Math.random() * 0.7 + 0.1,
+      speed: Math.random() * 0.0003 + 0.0001,
+      twinkle: Math.random() * Math.PI * 2,
+    }));
+
+    // Scroll parallax offset
+    let scrollY = 0;
+    const heroWrap = document.querySelector('.hero-planet-wrap');
+    window.addEventListener('scroll', () => {
+      if (heroWrap) {
+        const rect = heroWrap.getBoundingClientRect();
+        if (rect.bottom > 0) scrollY = window.scrollY;
+      }
+    });
+
+    function drawStars(ts) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const parallax = scrollY * 0.15;
+
+      stars.forEach(s => {
+        s.twinkle += s.speed * 60;
+        const opacity = s.o * (0.6 + 0.4 * Math.sin(s.twinkle));
+        const py = (s.y * canvas.height + parallax) % canvas.height;
+
+        ctx.beginPath();
+        ctx.arc(s.x * canvas.width, py, s.r, 0, Math.PI * 2);
+
+        // Some stars are lime-tinted
+        const lime = Math.random() < 0.05;
+        ctx.fillStyle = lime
+          ? `rgba(200,241,53,${opacity})`
+          : `rgba(255,255,255,${opacity})`;
+        ctx.fill();
+
+        // Glow for bigger stars
+        if (s.r > 1.1) {
+          ctx.beginPath();
+          ctx.arc(s.x * canvas.width, py, s.r * 2.5, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(200,241,53,${opacity * 0.08})`;
+          ctx.fill();
+        }
+      });
+
+      requestAnimationFrame(drawStars);
+    }
+    requestAnimationFrame(drawStars);
+
+    // Floating particles around planet
+    const container = document.getElementById('planetParticles');
+    if (container) {
+      for (let i = 0; i < 22; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'p-dot';
+        const size = Math.random() * 3 + 1;
+        const angle = Math.random() * 360;
+        const dist = 80 + Math.random() * 100;
+        const dx = Math.cos(angle * Math.PI/180) * dist;
+        const dy = Math.sin(angle * Math.PI/180) * dist;
+        const startX = 50 + Math.cos(angle * Math.PI/180) * 40;
+        const startY = 50 + Math.sin(angle * Math.PI/180) * 40;
+        dot.style.cssText = `
+          width:${size}px; height:${size}px;
+          left:${startX}%; top:${startY}%;
+          --dx:${dx}px; --dy:${dy}px;
+          animation-duration:${3 + Math.random()*5}s;
+          animation-delay:${Math.random()*6}s;
+          opacity:0;
+        `;
+        container.appendChild(dot);
+      }
+    }
+
+    // Planet parallax on scroll
+    const planetScene = document.querySelector('.planet-scene');
+    window.addEventListener('scroll', () => {
+      if (!planetScene || !heroWrap) return;
+      const rect = heroWrap.getBoundingClientRect();
+      if (rect.bottom > 0 && rect.top < window.innerHeight) {
+        const progress = -rect.top / rect.height;
+        planetScene.style.transform = `translateY(calc(-50% + ${progress * 60}px)) rotate(${progress * 8}deg)`;
+      }
+    });
+  }
+
+  // Init planet after DOM ready
+  document.addEventListener('DOMContentLoaded', initPlanet);
+  // Also init immediately if already loaded
+  if (document.readyState !== 'loading') initPlanet();
+
+  // ===================== START =====================
+  init();
+</script>
+</body>
+</html>

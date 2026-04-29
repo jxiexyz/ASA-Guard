@@ -1,0 +1,227 @@
+import * as anchor from "@coral-xyz/anchor";
+import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import { bcs } from "@mysten/bcs";
+import * as grpc from "@grpc/grpc-js";
+import * as protoLoader from "@grpc/proto-loader";
+import { readFileSync } from "fs";
+import { homedir } from "os";
+import { createHash } from "crypto";
+import dotenv from "dotenv";
+dotenv.config();
+
+const PROGRAM_ID = new PublicKey(process.env.PROGRAM_ID);
+const RPC = process.env.SOLANA_RPC || "https://api.devnet.solana.com";
+const GRPC_URL = "pre-alpha-dev-1.ika.ika-network.net:443";
+
+// ── BCS Types ──
+const ChainId = bcs.enum("ChainId", { Solana: null, Sui: null });
+const DWalletCurve = bcs.enum("DWalletCurve", { Secp256k1: null, Secp256r1: null, Curve25519: null, Ristretto: null });
+const DWalletSignatureAlgorithm = bcs.enum("DWalletSignatureAlgorithm", { ECDSASecp256k1: null, ECDSASecp256r1: null, Taproot: null, EdDSA: null, SchnorrkelSubstrate: null });
+const UserSignature = bcs.enum("UserSignature", {
+  Ed25519: bcs.struct("USE", { signature: bcs.vector(bcs.u8()), public_key: bcs.vector(bcs.u8()) }),
+  Secp256k1: bcs.struct("USS", { signature: bcs.vector(bcs.u8()), public_key: bcs.vector(bcs.u8()) }),
+  Secp256r1: bcs.struct("USR", { signature: bcs.vector(bcs.u8()), public_key: bcs.vector(bcs.u8()) }),
+});
+const NetworkSignedAttestation = bcs.struct("NetworkSignedAttestation", {
+  attestation_data: bcs.vector(bcs.u8()),
+  network_signature: bcs.vector(bcs.u8()),
+  network_pubkey: bcs.vector(bcs.u8()),
+  epoch: bcs.u64(),
+});
+const DWalletSignatureScheme = bcs.enum("DWalletSignatureScheme", { EcdsaKeccak256: null, EcdsaSha256: null, EcdsaDoubleSha256: null, TaprootSha256: null, EcdsaBlake2b256: null, EddsaSha512: null, SchnorrkelMerlin: null });
+const SignDuringDKGRequest = bcs.struct("SignDuringDKGRequest", {
+  presign_session_identifier: bcs.vector(bcs.u8()), presign: bcs.vector(bcs.u8()),
+  signature_scheme: DWalletSignatureScheme, message: bcs.vector(bcs.u8()),
+  message_metadata: bcs.vector(bcs.u8()), message_centralized_signature: bcs.vector(bcs.u8()),
+});
+const UserSecretKeyShare = bcs.enum("UserSecretKeyShare", {
+  Encrypted: bcs.struct("USKE", { encrypted_centralized_secret_share_and_proof: bcs.vector(bcs.u8()), encryption_key: bcs.vector(bcs.u8()), signer_public_key: bcs.vector(bcs.u8()) }),
+  Public: bcs.struct("USKP", { public_user_secret_key_share: bcs.vector(bcs.u8()) }),
+});
+const ApprovalProof = bcs.enum("ApprovalProof", {
+  Solana: bcs.struct("APS", { transaction_signature: bcs.vector(bcs.u8()), slot: bcs.u64() }),
+  Sui: bcs.struct("APSui", { effects_certificate: bcs.vector(bcs.u8()) }),
+});
+const DWalletRequest = bcs.enum("DWalletRequest", {
+  DKG: bcs.struct("DKG", { dwallet_network_encryption_public_key: bcs.vector(bcs.u8()), curve: DWalletCurve, centralized_public_key_share_and_proof: bcs.vector(bcs.u8()), user_secret_key_share: UserSecretKeyShare, user_public_output: bcs.vector(bcs.u8()), sign_during_dkg_request: bcs.option(SignDuringDKGRequest) }),
+  Sign: bcs.struct("Sign", { message: bcs.vector(bcs.u8()), message_metadata: bcs.vector(bcs.u8()), presign_session_identifier: bcs.vector(bcs.u8()), message_centralized_signature: bcs.vector(bcs.u8()), dwallet_attestation: NetworkSignedAttestation, approval_proof: ApprovalProof }),
+  ImportedKeySign: bcs.struct("IKS", { message: bcs.vector(bcs.u8()), message_metadata: bcs.vector(bcs.u8()), presign_session_identifier: bcs.vector(bcs.u8()), message_centralized_signature: bcs.vector(bcs.u8()), dwallet_attestation: NetworkSignedAttestation, approval_proof: ApprovalProof }),
+  Presign: bcs.struct("Presign", { dwallet_network_encryption_public_key: bcs.vector(bcs.u8()), curve: DWalletCurve, signature_algorithm: DWalletSignatureAlgorithm }),
+  PresignForDWallet: bcs.struct("PFD", { dwallet_network_encryption_public_key: bcs.vector(bcs.u8()), dwallet_public_key: bcs.vector(bcs.u8()), dwallet_attestation: NetworkSignedAttestation, curve: DWalletCurve, signature_algorithm: DWalletSignatureAlgorithm }),
+  ImportedKeyVerification: bcs.struct("IKV", { dwallet_network_encryption_public_key: bcs.vector(bcs.u8()), curve: DWalletCurve, centralized_party_message: bcs.vector(bcs.u8()), user_secret_key_share: UserSecretKeyShare, user_public_output: bcs.vector(bcs.u8()) }),
+  ReEncryptShare: bcs.struct("RES", { dwallet_network_encryption_public_key: bcs.vector(bcs.u8()), dwallet_public_key: bcs.vector(bcs.u8()), dwallet_attestation: NetworkSignedAttestation, encrypted_centralized_secret_share_and_proof: bcs.vector(bcs.u8()), encryption_key: bcs.vector(bcs.u8()) }),
+  MakeSharePublic: bcs.struct("MSP", { dwallet_public_key: bcs.vector(bcs.u8()), dwallet_attestation: NetworkSignedAttestation, public_user_secret_key_share: bcs.vector(bcs.u8()) }),
+  FutureSign: bcs.struct("FS", { dwallet_public_key: bcs.vector(bcs.u8()), dwallet_attestation: NetworkSignedAttestation, presign_session_identifier: bcs.vector(bcs.u8()), message: bcs.vector(bcs.u8()), message_metadata: bcs.vector(bcs.u8()), message_centralized_signature: bcs.vector(bcs.u8()), signature_scheme: DWalletSignatureScheme }),
+  SignWithPartialUserSig: bcs.struct("SWPUS", { partial_user_signature_attestation: NetworkSignedAttestation, dwallet_attestation: NetworkSignedAttestation, approval_proof: ApprovalProof }),
+  ImportedKeySignWithPartialUserSig: bcs.struct("IKSWPUS", { partial_user_signature_attestation: NetworkSignedAttestation, dwallet_attestation: NetworkSignedAttestation, approval_proof: ApprovalProof }),
+});
+const SignedRequestData = bcs.struct("SignedRequestData", {
+  session_identifier_preimage: bcs.fixedArray(32, bcs.u8()),
+  epoch: bcs.u64(), chain_id: ChainId,
+  intended_chain_sender: bcs.vector(bcs.u8()),
+  request: DWalletRequest,
+});
+const TransactionResponseData = bcs.enum("TransactionResponseData", {
+  Signature: bcs.struct("SR", { signature: bcs.vector(bcs.u8()) }),
+  Attestation: NetworkSignedAttestation,
+  Error: bcs.struct("ER", { message: bcs.string() }),
+});
+const VersionedDWalletDataAttestation = bcs.enum("VersionedDWalletDataAttestation", {
+  V1: bcs.struct("V1", { session_identifier: bcs.fixedArray(32, bcs.u8()), intended_chain_sender: bcs.vector(bcs.u8()), curve: DWalletCurve, public_key: bcs.vector(bcs.u8()), public_output: bcs.vector(bcs.u8()), is_imported_key: bcs.bool(), sign_during_dkg_signature: bcs.option(bcs.vector(bcs.u8())) }),
+});
+const VersionedPresignDataAttestation = bcs.enum("VersionedPresignDataAttestation", {
+  V1: bcs.struct("PV1", { session_identifier: bcs.fixedArray(32, bcs.u8()), epoch: bcs.u64(), presign_session_identifier: bcs.vector(bcs.u8()), presign_data: bcs.vector(bcs.u8()), curve: DWalletCurve, signature_algorithm: DWalletSignatureAlgorithm, dwallet_public_key: bcs.option(bcs.vector(bcs.u8())), user_pubkey: bcs.vector(bcs.u8()) }),
+});
+
+// ── IDL ──
+const IDL = {"address":"Di3vEFGxT7LJbSfpXyyZTeo2PEHEb8oXK4xRuMCY7Qdd","metadata":{"name":"asa","version":"0.1.0","spec":"0.1.0"},"instructions":[{"name":"initPolicy","discriminator":[45,234,110,100,209,146,191,86],"accounts":[{"name":"owner","writable":true,"signer":true},{"name":"policy","writable":true,"pda":{"seeds":[{"kind":"const","value":[112,111,108,105,99,121]},{"kind":"account","path":"owner"}]}},{"name":"systemProgram","address":"11111111111111111111111111111111"}],"args":[{"name":"agent","type":"pubkey"},{"name":"maxBuySol","type":"u64"},{"name":"stopLossBps","type":"u16"},{"name":"takeProfitBps","type":"u16"},{"name":"dailyLimitSol","type":"u64"}]},{"name":"approveTrade","discriminator":[7,254,199,234,17,251,210,183],"accounts":[{"name":"agent","signer":true},{"name":"policy","writable":true,"pda":{"seeds":[{"kind":"const","value":[112,111,108,105,99,121]},{"kind":"account","path":"policy.owner"}]}}],"args":[{"name":"amountLamports","type":"u64"}]},{"name":"updatePolicy","discriminator":[212,245,246,7,163,151,18,57],"accounts":[{"name":"owner","signer":true},{"name":"policy","writable":true,"pda":{"seeds":[{"kind":"const","value":[112,111,108,105,99,121]},{"kind":"account","path":"owner"}]}}],"args":[{"name":"maxBuySol","type":"u64"},{"name":"dailyLimitSol","type":"u64"},{"name":"isActive","type":"bool"}]}],"accounts":[{"name":"agentPolicy","discriminator":[148,193,218,129,21,96,195,77]}],"types":[{"name":"agentPolicy","type":{"kind":"struct","fields":[{"name":"owner","type":"pubkey"},{"name":"agent","type":"pubkey"},{"name":"maxBuySol","type":"u64"},{"name":"stopLossBps","type":"u16"},{"name":"takeProfitBps","type":"u16"},{"name":"dailyLimitSol","type":"u64"},{"name":"dailySpent","type":"u64"},{"name":"lastReset","type":"i64"},{"name":"tradeCount","type":"u32"},{"name":"isActive","type":"bool"},{"name":"bump","type":"u8"}]}}],"errors":[{"code":6000,"name":"Unauthorized","msg":"Unauthorized"},{"code":6001,"name":"PolicyInactive","msg":"Policy tidak aktif"},{"code":6002,"name":"ExceedsMaxBuy","msg":"Amount melebihi max buy per trade"},{"code":6003,"name":"ExceedsDailyLimit","msg":"Amount melebihi daily limit"}]};
+
+// ── gRPC Client ──
+function loadGrpcClient() {
+  const packageDef = protoLoader.loadSync(`${homedir()}/asa-guard/client/ika_dwallet.proto`, {
+    keepCase: true, longs: String, enums: String, defaults: true, oneofs: true,
+  });
+  const proto = grpc.loadPackageDefinition(packageDef);
+  const DWalletService = proto.ika.dwallet.v1.DWalletService;
+  return new DWalletService(GRPC_URL, grpc.credentials.createSsl());
+}
+
+function grpcSubmit(client, userSig, signedData) {
+  return new Promise((resolve, reject) => {
+    client.SubmitTransaction(
+      { user_signature: Buffer.from(userSig), signed_request_data: Buffer.from(signedData) },
+      (err, resp) => { if (err) reject(err); else resolve(new Uint8Array(resp.response_data)); }
+    );
+  });
+}
+
+function buildUserSig(payer) {
+  return UserSignature.serialize({
+    Ed25519: { signature: Array.from(new Uint8Array(64)), public_key: Array.from(payer.publicKey.toBytes()) },
+  }).toBytes();
+}
+
+// ── Main ──
+async function approveTrade(amountLamports) {
+  const connection = new Connection(RPC, "confirmed");
+  const rawKey = JSON.parse(readFileSync(`${homedir()}/.config/solana/id.json`, "utf8"));
+  const owner = Keypair.fromSecretKey(new Uint8Array(rawKey));
+  console.log("👤 Owner:", owner.publicKey.toBase58());
+
+  const wallet = new anchor.Wallet(owner);
+  const provider = new anchor.AnchorProvider(connection, wallet, { commitment: "confirmed" });
+  anchor.setProvider(provider);
+  const program = new anchor.Program(IDL, provider);
+
+  const [policyPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("policy"), owner.publicKey.toBuffer()], PROGRAM_ID
+  );
+
+  // 1. Check policy
+  const policy = await program.account.agentPolicy.fetch(policyPda);
+  console.log("📋 Policy active:", policy.isActive);
+  console.log("📊 Daily spent:", policy.dailySpent.toString(), "/", policy.dailyLimitSol.toString());
+
+  // 2. Approve trade on-chain
+  console.log(`\n🔄 Approving trade: ${amountLamports} lamports...`);
+  const BN = anchor.BN || anchor.default?.BN;
+  const txSig = await program.methods
+    .approveTrade(new BN(amountLamports))
+    .accounts({ agent: owner.publicKey, policy: policyPda })
+    .rpc();
+  console.log("✅ Trade APPROVED on-chain! Tx:", txSig);
+
+  // 3. DKG via Ika gRPC
+  console.log("\n🔑 Requesting DKG via Ika gRPC...");
+  const grpcClient = loadGrpcClient();
+
+  const dkgData = SignedRequestData.serialize({
+    session_identifier_preimage: Array.from(new Uint8Array(32)),
+    epoch: 1n, chain_id: { Solana: true },
+    intended_chain_sender: Array.from(owner.publicKey.toBytes()),
+    request: { DKG: {
+      dwallet_network_encryption_public_key: Array.from(new Uint8Array(32)),
+      curve: { Curve25519: true },
+      centralized_public_key_share_and_proof: Array.from(new Uint8Array(32)),
+      user_secret_key_share: { Encrypted: {
+        encrypted_centralized_secret_share_and_proof: Array.from(new Uint8Array(32)),
+        encryption_key: Array.from(new Uint8Array(32)),
+        signer_public_key: Array.from(owner.publicKey.toBytes()),
+      }},
+      user_public_output: Array.from(new Uint8Array(32)),
+      sign_during_dkg_request: null,
+    }},
+  }).toBytes();
+
+  const dkgResp = TransactionResponseData.parse(
+    await grpcSubmit(grpcClient, buildUserSig(owner), dkgData)
+  );
+  if (!dkgResp.Attestation) throw new Error(`DKG failed: ${JSON.stringify(dkgResp)}`);
+  console.log("✅ DKG attestation received!");
+
+  const dkgPayload = VersionedDWalletDataAttestation.parse(new Uint8Array(dkgResp.Attestation.attestation_data));
+  const dwalletAddr = new Uint8Array(owner.publicKey.toBytes());
+  console.log("🔑 dWallet addr:", Buffer.from(dwalletAddr).toString("hex"));
+
+  // 4. Presign
+  console.log("\n⚡ Requesting presign...");
+  const presignData = SignedRequestData.serialize({
+    session_identifier_preimage: Array.from(dwalletAddr),
+    epoch: 1n, chain_id: { Solana: true },
+    intended_chain_sender: Array.from(owner.publicKey.toBytes()),
+    request: { Presign: {
+      dwallet_network_encryption_public_key: Array.from(new Uint8Array(32)),
+      curve: { Curve25519: true },
+      signature_algorithm: { EdDSA: true },
+    }},
+  }).toBytes();
+
+  const presignResp = TransactionResponseData.parse(
+    await grpcSubmit(grpcClient, buildUserSig(owner), presignData)
+  );
+  if (!presignResp.Attestation) throw new Error(`Presign failed: ${JSON.stringify(presignResp)}`);
+  const presignPayload = VersionedPresignDataAttestation.parse(new Uint8Array(presignResp.Attestation.attestation_data));
+  if (!presignPayload.V1) throw new Error("Presign payload invalid");
+  const presignId = new Uint8Array(presignPayload.V1.presign_session_identifier);
+  console.log("✅ Presign allocated:", Buffer.from(presignId).toString("hex"));
+
+  // 5. Sign
+  console.log("\n✍️  Signing message via Ika...");
+  const message = Buffer.from(`ASA Guard: approve trade ${amountLamports} lamports`);
+  const signData = SignedRequestData.serialize({
+    session_identifier_preimage: Array.from(dwalletAddr),
+    epoch: 1n, chain_id: { Solana: true },
+    intended_chain_sender: Array.from(owner.publicKey.toBytes()),
+    request: { Sign: {
+      message: Array.from(message),
+      message_metadata: [],
+      presign_session_identifier: Array.from(presignId),
+      message_centralized_signature: Array.from(new Uint8Array(64)),
+      dwallet_attestation: {
+        attestation_data: Array.from(new Uint8Array(dkgResp.Attestation.attestation_data)),
+        network_signature: Array.from(new Uint8Array(dkgResp.Attestation.network_signature)),
+        network_pubkey: Array.from(new Uint8Array(dkgResp.Attestation.network_pubkey)),
+        epoch: dkgResp.Attestation.epoch,
+      },
+      approval_proof: { Solana: {
+        transaction_signature: Array.from(Buffer.from(txSig, "base64")),
+        slot: 0n,
+      }},
+    }},
+  }).toBytes();
+
+  const signResp = TransactionResponseData.parse(
+    await grpcSubmit(grpcClient, buildUserSig(owner), signData)
+  );
+
+  if (signResp.Signature) {
+    console.log("🎉 SIGNATURE:", Buffer.from(signResp.Signature.signature).toString("hex"));
+  } else if (signResp.Error) {
+    throw new Error(`Sign failed: ${signResp.Error.message}`);
+  }
+
+  grpcClient.close();
+}
+
+// Test: approve 0.1 SOL trade
+approveTrade(100_000_000).catch(console.error);
