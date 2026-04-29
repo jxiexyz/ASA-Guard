@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["nodejs_20", "python3", "python3Packages.requests"]
+nixPkgs = ["nodejs_20", "python3", "python3Packages.requests", "python3Packages.pip"]
 
 [phases.install]
 cmds = ["cd client && npm install --legacy-peer-deps"]
