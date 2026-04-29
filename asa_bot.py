@@ -10,7 +10,7 @@ import os
 BRIDGE_URL = "https://asa-guard-production.up.railway.app"
 INTERNAL_SECRET = "asa-guard-internal"
 HEADERS = {"Authorization": f"Bearer {INTERNAL_SECRET}"}
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8485282558:AAFK5iuSr6PstxplD61ktTHyitb5LzlRuaM")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "645790395")
 TRADE_INTERVAL = 15  # seconds between trades
 
