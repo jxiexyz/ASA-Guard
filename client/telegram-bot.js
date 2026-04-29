@@ -132,7 +132,7 @@ async function handleCallback(update) {
   if (cmd === '/setlimit') return handleSetLimit(chatId);
   if (cmd.startsWith('approve_login:')) {
     const token = cmd.split(':')[1];
-    await fetch('http://localhost:3000/api/auth/callback', {
+    await fetch(`${process.env.BRIDGE_URL || 'http://localhost:3000'}/api/auth/callback`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-internal-secret': process.env.INTERNAL_SECRET },
       body: JSON.stringify({ token, approved: true })
@@ -141,7 +141,7 @@ async function handleCallback(update) {
   }
   if (cmd.startsWith('reject_login:')) {
     const token = cmd.split(':')[1];
-    await fetch('http://localhost:3000/api/auth/callback', {
+    await fetch(`${process.env.BRIDGE_URL || 'http://localhost:3000'}/api/auth/callback`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-internal-secret': process.env.INTERNAL_SECRET },
       body: JSON.stringify({ token, approved: false })
