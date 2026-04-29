@@ -7,7 +7,7 @@ import time
 import random
 import os
 
-BRIDGE_URL = "http://localhost:3000"
+BRIDGE_URL = "https://asa-guard-production.up.railway.app"
 INTERNAL_SECRET = "asa-guard-internal"
 HEADERS = {"Authorization": f"Bearer {INTERNAL_SECRET}"}
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8485282558:AAFK5iuSr6PstxplD61ktTHyitb5LzlRuaM")
