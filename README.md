@@ -1,10 +1,16 @@
 # ASA Guard
 
-**Autonomous Solana Agent with Decentralized Guardrails**
-
 > AI trading agents should never hold private keys. ASA Guard enforces your trading policy on-chain via Solana and signs every transaction through Ika zero-trust MPC. Your keys never exist in plaintext.
 
-Program ID: `Di3vEFGxT7LJbSfpXyyZTeo2PEHEb8oXK4xRuMCY7Qdd` (Solana Devnet)
+[![Solana](https://img.shields.io/badge/Solana-Devnet-9945FF?style=flat&logo=solana&logoColor=white)](https://solana.com)
+[![Anchor](https://img.shields.io/badge/Anchor-Rust-000000?style=flat&logo=rust&logoColor=white)](https://anchor-lang.com)
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat&logo=python&logoColor=white)](https://python.org)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=flat&logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![Ika](https://img.shields.io/badge/Ika-2PC--MPC-FF6B35?style=flat)](https://solana-pre-alpha.ika.xyz)
+[![Groq](https://img.shields.io/badge/Groq-AI-F55036?style=flat)](https://groq.com)
+[![X](https://img.shields.io/badge/@chiquast-000000?style=flat&logo=x&logoColor=white)](https://x.com/chiquast)
+
+**Program ID:** `Di3vEFGxT7LJbSfpXyyZTeo2PEHEb8oXK4xRuMCY7Qdd` (Solana Devnet)
 
 ---
 
@@ -70,8 +76,6 @@ ASA Guard integrates Ika as the sole signing mechanism for all agent transaction
 
 **Zero-trust enforcement:** Because Ika requires both shares to sign, a compromised server cannot move funds unilaterally. The Solana program acts as the policy enforcer, and Ika acts as the cryptographic gatekeeper.
 
-This matches the exact use case described in Ika's documentation: multi-chain agentic wallets with scalable decentralized guardrails for AI agents.
-
 ---
 
 ## Architecture
@@ -101,10 +105,31 @@ pub struct AgentPolicy {
 }
 ```
 
-Instructions:
-- `init_policy` - initialize policy rules on-chain
-- `approve_trade` - agent requests approval, program checks all rules and either approves or rejects
-- `update_policy` - owner updates rules, change is effective immediately on-chain
+**Instructions:**
+- `init_policy` -- initialize policy rules on-chain
+- `approve_trade` -- agent requests approval, program checks all rules and either approves or rejects
+- `update_policy` -- owner updates rules, change is effective immediately on-chain
+
+---
+
+## Security Model
+
+**Before ASA Guard (standard agent):**
+```
+Private key in .env file
+    -> Server compromised
+    -> All funds stolen
+    -> No recourse
+```
+
+**After ASA Guard:**
+```
+No private key anywhere on the server
+    -> Agent requests approval from Solana program
+    -> Solana program enforces policy on-chain
+    -> Ika network co-signs only if approved
+    -> Server compromised = attacker gets nothing
+```
 
 ---
 
@@ -112,23 +137,23 @@ Instructions:
 
 ```
 asa-guard/
-├── onchain/                  # Anchor program (Rust)
-│   ├── programs/asa-guard/
-│   │   └── src/
-│   │       ├── lib.rs        # Program entry point, instruction routing
-│   │       ├── state.rs      # AgentPolicy account struct
-│   │       ├── instructions.rs # approve_trade, init_policy, update_policy
-│   │       └── error.rs      # Custom program errors
-│   └── Anchor.toml
-├── client/                   # Bridge server + dashboard
-│   ├── server.js             # Express API bridge
-│   ├── telegram-bot.js       # Telegram bot for monitoring
-│   ├── ika-bridge.js         # Ika gRPC integration
-│   ├── bridge.js             # Solana program client
-│   └── index.html            # Web dashboard
-├── asa_bot.py                # AI trading agent
-├── start.sh                  # Start all services
-└── stop.sh                   # Stop all services
+  onchain/                      Anchor program (Rust)
+    programs/asa-guard/
+      src/
+        lib.rs                  Program entry point, instruction routing
+        state.rs                AgentPolicy account struct
+        instructions.rs         approve_trade, init_policy, update_policy
+        error.rs                Custom program errors
+    Anchor.toml
+  client/                       Bridge server + dashboard
+    server.js                   Express API bridge
+    telegram-bot.js             Telegram bot for monitoring
+    ika-bridge.js               Ika gRPC integration
+    bridge.js                   Solana program client
+    index.html                  Web dashboard
+  asa_bot.py                    AI trading agent
+  start.sh                      Start all services
+  stop.sh                       Stop all services
 ```
 
 ---
@@ -197,7 +222,7 @@ This starts the Express bridge server, Telegram bot, and AI trading agent in the
 
 ### 5. Open the dashboard
 
-Navigate to `http://localhost:3000` in your browser and authenticate via Telegram.
+Navigate to `http://localhost:3000` and authenticate via Telegram.
 
 ---
 
@@ -205,35 +230,6 @@ Navigate to `http://localhost:3000` in your browser and authenticate via Telegra
 
 ```bash
 ./stop.sh
-```
-
----
-
-## Deployed Program
-
-| Network | Program ID |
-|---|---|
-| Solana Devnet | `Di3vEFGxT7LJbSfpXyyZTeo2PEHEb8oXK4xRuMCY7Qdd` |
-
----
-
-## Security Model
-
-**Before ASA Guard (standard agent):**
-```
-Private key in .env file
-    -> Server compromised
-    -> All funds stolen
-    -> No recourse
-```
-
-**After ASA Guard:**
-```
-No private key anywhere on the server
-    -> Agent requests approval from Solana program
-    -> Solana program enforces policy on-chain
-    -> Ika network co-signs only if approved
-    -> Server compromised = attacker gets nothing
 ```
 
 ---
@@ -251,12 +247,20 @@ No private key anywhere on the server
 
 ---
 
+## Deployed Program
+
+| Network | Program ID |
+|---|---|
+| Solana Devnet | `Di3vEFGxT7LJbSfpXyyZTeo2PEHEb8oXK4xRuMCY7Qdd` |
+
+---
+
 ## Built With
 
-- [Solana](https://solana.com) - Layer 1 blockchain
-- [Anchor](https://anchor-lang.com) - Solana program framework
-- [Ika](https://solana-pre-alpha.ika.xyz) - 2PC-MPC zero-trust signing network
-- [Groq](https://groq.com) - AI inference for trading decisions
+- [Solana](https://solana.com) -- Layer 1 blockchain
+- [Anchor](https://anchor-lang.com) -- Solana program framework
+- [Ika](https://solana-pre-alpha.ika.xyz) -- 2PC-MPC zero-trust signing network
+- [Groq](https://groq.com) -- AI inference for trading decisions
 - Node.js, Express, Python, SQLite
 
 ---
